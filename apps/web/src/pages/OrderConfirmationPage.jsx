@@ -3,7 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { CheckCircle, Package, Award, ArrowRight } from 'lucide-react';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -19,7 +19,8 @@ const OrderConfirmationPage = () => {
     if (!order && id) {
       const fetchOrder = async () => {
         try {
-          const fetchedOrder = await pb.collection('orders').getOne(id, { $autoCancel: false });
+          const { data: fetchedOrder, error } = await supabase.from('orders').select('*').eq('id', id).single();
+          if (error) throw error;
           setOrder(fetchedOrder);
           setPointsEarned(Math.floor(fetchedOrder.total * 10));
         } catch (error) {
@@ -121,7 +122,7 @@ const OrderConfirmationPage = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#f2ead8]/70 font-light">Order Date</span>
-                      <span className="text-[#f2ead8]">{new Date(order.created).toLocaleDateString()}</span>
+                      <span className="text-[#f2ead8]">{new Date(order.created_at).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#f2ead8]/70 font-light">Status</span>

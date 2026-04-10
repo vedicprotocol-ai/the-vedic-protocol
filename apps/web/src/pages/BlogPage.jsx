@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Link, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 
 /* ─────────────────────────────────────────────────────────────
    STATIC POST DATA
@@ -254,21 +254,18 @@ const BlogList = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await pb.collection('blog_posts').getList(1, 100, {
-          filter: 'published = true',
-          sort: '-created',
-          $autoCancel: false,
-        });
+        const { data: items } = await supabase.from('blog_posts').select('*')
+          .eq('published', true).order('created_at', { ascending: false }).limit(100);
         if (!cancelled) {
-          setAllPosts(res.items.length > 0
-            ? res.items.map((p) => ({
+          setAllPosts(items && items.length > 0
+            ? items.map((p) => ({
               slug: p.slug,
               type: p.type || 'journal',
               title: p.title || '',
               excerpt: p.excerpt || '',
               body: p.body || '',
               readTime: p.read_time || 5,
-              date: new Date(p.created).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+              date: new Date(p.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
               image: p.image_url || POSTS[0].image,
               relatedCategory: p.related_category || 'skincare',
             }))
@@ -416,13 +413,11 @@ const BlogPost = ({ slug }) => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await pb.collection('blog_posts').getList(1, 1, {
-          filter: `slug = "${slug}" && published = true`,
-          $autoCancel: false,
-        });
+        const { data: items } = await supabase.from('blog_posts').select('*')
+          .eq('slug', slug).eq('published', true).limit(1);
         if (cancelled) return;
-        if (res.items.length === 0) { setNotFound(true); return; }
-        const p = res.items[0];
+        if (!items || items.length === 0) { setNotFound(true); return; }
+        const p = items[0];
         const mapped = {
           slug: p.slug,
           type: p.type,
@@ -430,7 +425,7 @@ const BlogPost = ({ slug }) => {
           excerpt: p.excerpt,
           body: p.body || '',
           readTime: p.read_time || 5,
-          date: new Date(p.created).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+          date: new Date(p.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
           image: p.image_url || POSTS[0].image,
           relatedCategory: p.related_category || 'skincare',
         };

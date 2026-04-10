@@ -4,7 +4,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import { getImageUrl } from '@/lib/supabaseClient.js';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
@@ -44,7 +44,7 @@ export const CartPage = () => {
                   <div key={item.id} style={{ display: 'flex', gap: '24px', padding: '24px 0', borderBottom: '1px solid var(--line)', position: 'relative' }}>
                     <div style={{ width: '88px', height: '110px', background: 'var(--stone)', flexShrink: 0, overflow: 'hidden' }}>
                       <img
-                        src={item.image ? pb.files.getUrl(item, item.image) : 'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg'}
+                        src={item.image ? getImageUrl(item.image) : 'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg'}
                         alt={item.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />

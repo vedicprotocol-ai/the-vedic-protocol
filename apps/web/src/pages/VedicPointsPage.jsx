@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -15,15 +15,12 @@ const VedicPointsPage = () => {
       if (!isAuthenticated || !currentUser) return;
       
       try {
-        const customer = await pb.collection('customers').getOne(currentUser.id, { $autoCancel: false });
+        const { data: customer } = await supabase.from('customers').select('*').eq('id', currentUser.id).single();
         setPointsData(customer);
 
-        const pointsHistory = await pb.collection('loyalty_points').getList(1, 10, {
-          filter: `customer_id = "${currentUser.id}"`,
-          sort: '-created',
-          $autoCancel: false
-        });
-        setHistory(pointsHistory.items);
+        const { data: pointsHistory } = await supabase.from('loyalty_points').select('*')
+          .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(10);
+        setHistory(pointsHistory ?? []);
       } catch (error) {
         console.error('Error fetching points data:', error);
       }

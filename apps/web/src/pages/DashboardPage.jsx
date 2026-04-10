@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -46,19 +46,16 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    pb.collection('orders').getList(1, 50, {
-      filter: `customer_id="${currentUser.id}"`, sort: '-created', $autoCancel: false
-    }).then(r => { setOrders(r.items); setLoading(false); }).catch(() => setLoading(false));
+    supabase.from('orders').select('*')
+      .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(50)
+      .then(({ data }) => { setOrders(data ?? []); setLoading(false); }).catch(() => setLoading(false));
   }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
-    pb.collection('appointments').getList(1, 50, {
-      filter: `customer_id="${currentUser.id}"`,
-      sort: '-created',
-      expand: 'doctor_id',
-      $autoCancel: false
-    }).then(r => { setAppointments(r.items); setApptLoading(false); })
+    supabase.from('appointments').select('*, doctor:doctor_id(*)')
+      .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(50)
+      .then(({ data }) => { setAppointments(data ?? []); setApptLoading(false); })
       .catch(() => setApptLoading(false));
   }, [currentUser]);
 
@@ -66,25 +63,24 @@ export const DashboardPage = () => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     setCancellingId(apptId);
     try {
-      await pb.collection('appointments').update(apptId, { status: 'cancelled' }, { $autoCancel: false });
+      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', apptId);
 
       // Free up the slot
-      // availability_slots.date is stored as full datetime e.g. "2026-03-29 12:00:00.000Z"
-      // so we match using ~ (contains) on the YYYY-MM-DD portion
       let resolvedSlotId = slotId || null;
 
       if (!resolvedSlotId && apptData) {
         try {
-          // Extract YYYY-MM-DD from appointment_date which may be "2026-03-29 12:00:00.000Z" or "2026-03-29T..."
           const raw = apptData.appointment_date || '';
           const dateStr = raw.substring(0, 10); // "2026-03-29"
 
           if (dateStr.length === 10 && apptData.doctor_id && apptData.appointment_time) {
-            const slots = await pb.collection('availability_slots').getFullList({
-              filter: `doctor_id = "${apptData.doctor_id}" && time_slot = "${apptData.appointment_time}" && date ~ "${dateStr}"`,
-              $autoCancel: false
-            });
-            if (slots.length > 0) resolvedSlotId = slots[0].id;
+            const { data: slots } = await supabase.from('availability_slots').select('id')
+              .eq('doctor_id', apptData.doctor_id)
+              .eq('time_slot', apptData.appointment_time)
+              .gte('date', dateStr + 'T00:00:00')
+              .lt('date', dateStr + 'T23:59:59')
+              .limit(1);
+            if (slots?.length > 0) resolvedSlotId = slots[0].id;
           }
         } catch (lookupErr) {
           console.warn('Slot lookup failed:', lookupErr);
@@ -92,11 +88,7 @@ export const DashboardPage = () => {
       }
 
       if (resolvedSlotId) {
-        await pb.collection('availability_slots').update(
-          resolvedSlotId,
-          { is_available: true },
-          { $autoCancel: false }
-        );
+        await supabase.from('availability_slots').update({ is_available: true }).eq('id', resolvedSlotId);
       }
 
       setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, status: 'cancelled' } : a));
@@ -182,7 +174,7 @@ export const DashboardPage = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
                       {[
                         ['Order Number', `#${o.order_number}`],
-                        ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
+                        ['Date', new Date(o.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
                         ['Total', `₹${o.total?.toFixed(0)}`],
                         ['Status', o.status],
                       ].map(([label, value]) => (
@@ -221,9 +213,9 @@ export const DashboardPage = () => {
               {/* Appointment detail */}
               {selectedItem.type === 'appointment' && (() => {
                 const appt = selectedItem.data;
-                const doctorName = appt.expand?.doctor_id?.name || 'Doctor';
-                const doctorSpec = appt.expand?.doctor_id?.specialization || '';
-                const doctorQual = appt.expand?.doctor_id?.qualification || '';
+                const doctorName = appt.doctor?.name || 'Doctor';
+                const doctorSpec = appt.doctor?.specialization || '';
+                const doctorQual = appt.doctor?.qualification || '';
                 const isCancelled = appt.status === 'cancelled';
                 const isCompleted = appt.status === 'completed';
                 const canCancel   = !isCancelled && !isCompleted;
@@ -370,7 +362,7 @@ export const DashboardPage = () => {
                           onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent'; }}
                         >
                           <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.order_number}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
                           <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
                           <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
                         </div>
@@ -410,8 +402,8 @@ export const DashboardPage = () => {
                       </div>
 
                       {appointments.map(appt => {
-                        const doctorName = appt.expand?.doctor_id?.name || appt.doctor_name || 'Doctor';
-                        const doctorSpec = appt.expand?.doctor_id?.specialization || '';
+                        const doctorName = appt.doctor?.name || appt.doctor_name || 'Doctor';
+                        const doctorSpec = appt.doctor?.specialization || '';
                         const isCancelled = appt.status === 'cancelled';
                         const isCompleted = appt.status === 'completed';
                         const canCancel   = !isCancelled && !isCompleted;

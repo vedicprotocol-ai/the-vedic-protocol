@@ -3,9 +3,9 @@
 	 All share an elegant centred card layout
 	 ═══════════════════════════════════════════════ */
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -617,7 +617,9 @@ export const ForgotPasswordPage = () => {
 		setEmailError('');
 		setLoading(true);
 		try {
-			await pb.collection('customers').requestPasswordReset(email);
+			await supabase.auth.resetPasswordForEmail(email, {
+				redirectTo: `${window.location.origin}/reset-password`,
+			});
 			setDone(true);
 		} catch {
 			setDone(true); // Always show success to prevent email enumeration
@@ -690,7 +692,6 @@ export const ForgotPasswordPage = () => {
 	 RESET PASSWORD PAGE
 	 ═══════════════════════════════════════════════ */
 export const ResetPasswordPage = () => {
-	const { token } = useParams();
 	const navigate = useNavigate();
 	const [password, setPassword] = useState('');
 	const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -718,7 +719,10 @@ export const ResetPasswordPage = () => {
 		setErrors({});
 		setLoading(true);
 		try {
-			await pb.collection('customers').confirmPasswordReset(token, password, passwordConfirm);
+			// Supabase exchanges the recovery token from the URL hash automatically.
+			// We just call updateUser with the new password.
+			const { error } = await supabase.auth.updateUser({ password });
+			if (error) throw error;
 			navigate('/login');
 		} catch {
 			setServerError('This reset link is invalid or has expired. Please request a new one.');

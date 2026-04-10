@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 
 const STYLES = `
   .admin-container {
@@ -181,8 +181,8 @@ export default function AdminDoctorsPage() {
   const fetchDoctors = async () => {
     setLoading(true);
     try {
-      const res = await pb.collection('doctors').getList(1, 100, { sort: '-created', $autoCancel: false });
-      setDoctors(res.items);
+      const { data: res } = await supabase.from('doctors').select('*').order('created_at', { ascending: false }).limit(100);
+      setDoctors(res ?? []);
       if (res.items.length > 0 && !selectedDoctorId) {
         setSelectedDoctorId(res.items[0].id);
       }
@@ -235,19 +235,33 @@ export default function AdminDoctorsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const data = new FormData();
-      data.append('name', formData.name);
-      data.append('qualification', formData.qualification);
-      data.append('experience_years', formData.experience_years);
-      data.append('specialization', formData.specialization);
-      data.append('short_description', formData.short_description);
-      data.append('full_description', formData.full_description);
-      if (formData.photo instanceof File) data.append('photo', formData.photo);
+      let photoPath = editingDoc?.photo ?? null;
+
+      // Upload new photo to Supabase Storage if a file was selected
+      if (formData.photo instanceof File) {
+        const ext = formData.photo.name.split('.').pop();
+        const filePath = `doctors/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('images')
+          .upload(filePath, formData.photo, { upsert: true });
+        if (uploadErr) throw uploadErr;
+        photoPath = filePath;
+      }
+
+      const payload = {
+        name: formData.name,
+        qualification: formData.qualification,
+        experience_years: formData.experience_years,
+        specialization: formData.specialization,
+        short_description: formData.short_description,
+        full_description: formData.full_description,
+        photo: photoPath,
+      };
 
       if (editingDoc) {
-        await pb.collection('doctors').update(editingDoc.id, data, { $autoCancel: false });
+        await supabase.from('doctors').update(payload).eq('id', editingDoc.id);
       } else {
-        await pb.collection('doctors').create(data, { $autoCancel: false });
+        await supabase.from('doctors').insert(payload);
       }
       await fetchDoctors();
       handleCloseForm();
@@ -268,15 +282,8 @@ export default function AdminDoctorsPage() {
     if (!editingDoc) return;
     setSaving(true);
     try {
-      const allSlots = await pb.collection('availability_slots').getFullList({
-        filter: `doctor_id = "${editingDoc.id}"`,
-        fields: 'id',
-        $autoCancel: false
-      });
-      await Promise.all(allSlots.map(s =>
-        pb.collection('availability_slots').delete(s.id, { $autoCancel: false })
-      ));
-      await pb.collection('doctors').delete(editingDoc.id, { $autoCancel: false });
+      await supabase.from('availability_slots').delete().eq('doctor_id', editingDoc.id);
+      await supabase.from('doctors').delete().eq('id', editingDoc.id);
       await fetchDoctors();
       setIsDeleteOpen(false);
       setEditingDoc(null);
@@ -294,12 +301,11 @@ export default function AdminDoctorsPage() {
     setSlotsLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const res = await pb.collection('availability_slots').getFullList({
-        filter: `doctor_id = "${selectedDoctorId}" && date >= "${today} 00:00:00"`,
-        sort: 'date,time_slot',
-        $autoCancel: false
-      });
-      setSlots(res);
+      const { data: res } = await supabase.from('availability_slots').select('*')
+        .eq('doctor_id', selectedDoctorId)
+        .gte('date', today + 'T00:00:00')
+        .order('date').order('time_slot');
+      setSlots(res ?? []);
     } catch (err) {
       console.error('Error fetching slots:', err);
     } finally {
@@ -327,12 +333,12 @@ export default function AdminDoctorsPage() {
     }
     setSlotSaving(true);
     try {
-      await pb.collection('availability_slots').create({
+      await supabase.from('availability_slots').insert({
         doctor_id: selectedDoctorId,
-        date: singleSlotForm.date + " 12:00:00.000Z",
+        date: singleSlotForm.date + 'T12:00:00',
         time_slot: singleSlotForm.time,
-        is_available: true
-      }, { $autoCancel: false });
+        is_available: true,
+      });
       setSingleSlotForm({ date: '', time: '' });
       await fetchSlots();
     } catch (err) {
@@ -369,12 +375,12 @@ export default function AdminDoctorsPage() {
             skipped++;
           } else {
             promises.push(
-              pb.collection('availability_slots').create({
+              supabase.from('availability_slots').insert({
                 doctor_id: selectedDoctorId,
-                date: dateStr + " 12:00:00.000Z",
+                date: dateStr + 'T12:00:00',
                 time_slot: timeStr,
-                is_available: true
-              }, { $autoCancel: false })
+                is_available: true,
+              })
             );
           }
 
@@ -405,7 +411,7 @@ export default function AdminDoctorsPage() {
   const handleDeleteSlot = async (slotId) => {
     if (!window.confirm('Delete this slot?')) return;
     try {
-      await pb.collection('availability_slots').delete(slotId, { $autoCancel: false });
+      await supabase.from('availability_slots').delete().eq('id', slotId);
       setSelectedSlots(prev => { const n = new Set(prev); n.delete(slotId); return n; });
       await fetchSlots();
     } catch (err) {
@@ -419,9 +425,7 @@ export default function AdminDoctorsPage() {
     if (!window.confirm(`Delete ${selectedSlots.size} selected slot(s)?`)) return;
     setSlotSaving(true);
     try {
-      await Promise.all([...selectedSlots].map(id =>
-        pb.collection('availability_slots').delete(id, { $autoCancel: false })
-      ));
+      await supabase.from('availability_slots').delete().in('id', [...selectedSlots]);
       setSelectedSlots(new Set());
       await fetchSlots();
     } catch (err) {

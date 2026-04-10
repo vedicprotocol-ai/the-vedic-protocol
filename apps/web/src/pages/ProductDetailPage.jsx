@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
@@ -19,13 +19,13 @@ const ProductDetailPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await pb.collection('products').getOne(id, { $autoCancel: false });
+        const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+        if (error) throw error;
         setProduct(data);
         if (data.category) {
-          const rel = await pb.collection('products').getList(1, 3, {
-            filter: `category = "${data.category}" && id != "${id}"`, $autoCancel: false
-          });
-          setRelated(rel.items);
+          const { data: rel } = await supabase.from('products').select('*')
+            .eq('category', data.category).neq('id', id).limit(3);
+          setRelated(rel ?? []);
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
@@ -34,7 +34,7 @@ const ProductDetailPage = () => {
   }, [id]);
 
   const getImage = (p) => {
-    if (p.image) return pb.files.getUrl(p, p.image);
+    if (p.image) return getImageUrl(p.image);
     return 'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg';
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 
 const Footer = () => {
   const [email, setEmail] = useState('');
@@ -42,17 +42,12 @@ const Footer = () => {
         throw new Error(data.message || 'Failed to join waitlist.');
       }
 
-      // 2. Save to PocketBase newsletter_subscribers collection
+      // 2. Save to Supabase newsletter_subscribers table
       try {
-        await pb.collection('newsletter_subscribers').create(
-          { email, source: 'waitlist' },
-          { $autoCancel: false }
-        );
-      } catch (pbErr) {
-        // Silently ignore duplicate email errors — subscriber already exists
-        if (!pbErr?.message?.includes('already')) {
-          console.warn('newsletter_subscribers save failed:', pbErr);
-        }
+        await supabase.from('newsletter_subscribers').insert({ email, source: 'waitlist' });
+      } catch (dbErr) {
+        // Silently ignore — duplicate or non-critical
+        console.warn('newsletter_subscribers save failed:', dbErr);
       }
 
       // 3. Send welcome email via Brevo transactional API

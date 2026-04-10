@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
 import Header from '@/components/Header.jsx';
@@ -38,10 +38,11 @@ export const CheckoutPage = () => {
         shipping_address: JSON.stringify(shipping),
         payment_method: 'credit_card'
       };
-      const order = await pb.collection('orders').create(orderData, { $autoCancel: false });
+      const { data: order, error: orderErr } = await supabase.from('orders').insert(orderData).select().single();
+      if (orderErr) throw orderErr;
       const pts = Math.floor(total * 10);
-      await pb.collection('loyalty_points').create({ customer_id: currentUser.id, points_earned: pts, transaction_type: 'purchase', order_id: order.id }, { $autoCancel: false });
-      await pb.collection('customers').update(currentUser.id, { vedic_points: (currentUser.vedic_points || 0) + pts }, { $autoCancel: false });
+      await supabase.from('loyalty_points').insert({ customer_id: currentUser.id, points_earned: pts, transaction_type: 'purchase', order_id: order.id });
+      await supabase.from('customers').update({ vedic_points: (currentUser.vedic_points || 0) + pts }).eq('id', currentUser.id);
       clearCart();
       navigate(`/order-confirmation/${order.id}`, { state: { order, pointsEarned: pts } });
     } catch (e) {

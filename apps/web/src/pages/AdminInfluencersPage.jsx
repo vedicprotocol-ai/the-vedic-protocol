@@ -3,23 +3,8 @@ import { Helmet } from 'react-helmet';
 import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
-import pb from '@/lib/pocketbaseClient.js';
-import Pocketbase from 'pocketbase';
+import supabase from '@/lib/supabaseClient.js';
 import { useToast } from '@/hooks/use-toast.js';
-
-const getSuperuserPb = () => {
-  try {
-    const raw = localStorage.getItem('__pb_superuser_auth__');
-    if (!raw) return pb;
-    const { token, record, model } = JSON.parse(raw);
-    if (!token) return pb;
-    const superPb = new Pocketbase('/hcgi/platform');
-    superPb.authStore.save(token, record || model || null);
-    return superPb;
-  } catch {
-    return pb;
-  }
-};
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -50,25 +35,14 @@ export default function AdminInfluencersPage() {
   const fetchInfluencers = async () => {
     setLoading(true);
     try {
-      // Fetch influencers with customer details
-      const infRes = await pb.collection('influencers').getFullList({
-        expand: 'customer_id',
-        sort: '-created',
-        $autoCancel: false
-      });
+      const { data: infRes } = await supabase.from('influencers')
+        .select('*, customer:customer_id(*)').order('created_at', { ascending: false });
+      const { data: coupRes } = await supabase.from('coupons').select('*');
 
-      // Fetch all coupons to map to influencers
-      const coupRes = await pb.collection('coupons').getFullList({
-        $autoCancel: false
-      });
-
-      const merged = infRes.map(inf => {
-        const coupon = coupRes.find(c => c.influencer_id === inf.id);
-        return {
-          ...inf,
-          coupon: coupon || null
-        };
-      });
+      const merged = (infRes ?? []).map(inf => ({
+        ...inf,
+        coupon: (coupRes ?? []).find(c => c.influencer_id === inf.id) || null,
+      }));
 
       setInfluencers(merged);
     } catch (error) {
@@ -91,7 +65,7 @@ export default function AdminInfluencersPage() {
     if (influencer) {
       setEditingId(influencer.id);
       setFormData({
-        customer_email: influencer.expand?.customer_id?.email || '',
+        customer_email: influencer.customer?.email || '',
         influencer_code: influencer.influencer_code || '',
         discount_percentage: influencer.coupon?.discount_percentage || 10,
         expires_at: influencer.coupon?.expires_at ? influencer.coupon.expires_at.split('T')[0] : '',
@@ -116,63 +90,57 @@ export default function AdminInfluencersPage() {
       return;
     }
 
-    const superPb = getSuperuserPb();
-
     setIsSaving(true);
     try {
       if (!editingId) {
-        const customers = await superPb.collection('customers').getFullList({
-          filter: `email = "${formData.customer_email}"`, $autoCancel: false
-        });
-        if (customers.length === 0) throw new Error('No customer found with that email. Please ensure they have registered an account first.');
+        const { data: customers } = await supabase.from('customers')
+          .select('*').eq('email', formData.customer_email).limit(1);
+        if (!customers || customers.length === 0) throw new Error('No customer found with that email. Please ensure they have registered an account first.');
 
         const customer = customers[0];
-        const existingInf = await superPb.collection('influencers').getFullList({
-          filter: `customer_id = "${customer.id}"`, $autoCancel: false
-        });
-        if (existingInf.length > 0) throw new Error('This customer is already an influencer.');
+        const { data: existingInf } = await supabase.from('influencers')
+          .select('id').eq('customer_id', customer.id).limit(1);
+        if (existingInf && existingInf.length > 0) throw new Error('This customer is already an influencer.');
 
-        const newInf = await superPb.collection('influencers').create({
+        const { data: newInf, error: infErr } = await supabase.from('influencers').insert({
           user_id: customer.id,
           customer_id: customer.id,
           influencer_code: formData.influencer_code,
           status: formData.status,
           total_earnings: 0,
-          vedic_points: 0
-        }, { $autoCancel: false });
+          vedic_points: 0,
+        }).select().single();
+        if (infErr) throw infErr;
 
-        await superPb.collection('coupons').create({
+        await supabase.from('coupons').insert({
           coupon_code: formData.influencer_code,
           discount_percentage: Number(formData.discount_percentage),
           influencer_id: newInf.id,
           influencer_earning_percentage: 10,
           is_active: formData.status === 'active',
-          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null
-        }, { $autoCancel: false });
+          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
+        });
 
       } else {
-        await superPb.collection('influencers').update(editingId, {
+        await supabase.from('influencers').update({
           influencer_code: formData.influencer_code,
-          status: formData.status
-        }, { $autoCancel: false });
+          status: formData.status,
+        }).eq('id', editingId);
 
-        const existingCoupons = await superPb.collection('coupons').getFullList({
-          filter: `influencer_id = "${editingId}"`, $autoCancel: false
-        });
+        const { data: existingCoupons } = await supabase.from('coupons')
+          .select('*').eq('influencer_id', editingId);
 
         const couponData = {
           coupon_code: formData.influencer_code,
           discount_percentage: Number(formData.discount_percentage),
           is_active: formData.status === 'active',
-          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null
+          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
         };
 
-        if (existingCoupons.length > 0) {
-          await superPb.collection('coupons').update(existingCoupons[0].id, couponData, { $autoCancel: false });
+        if (existingCoupons && existingCoupons.length > 0) {
+          await supabase.from('coupons').update(couponData).eq('id', existingCoupons[0].id);
         } else {
-          await superPb.collection('coupons').create({
-            ...couponData, influencer_id: editingId, influencer_earning_percentage: 10
-          }, { $autoCancel: false });
+          await supabase.from('coupons').insert({ ...couponData, influencer_id: editingId, influencer_earning_percentage: 10 });
         }
       }
 
@@ -190,14 +158,9 @@ export default function AdminInfluencersPage() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this influencer? This will also delete their associated coupons.")) return;
 
-    const superPb = getSuperuserPb();
-
     try {
-      const coupons = await superPb.collection('coupons').getFullList({
-        filter: `influencer_id = "${id}"`, $autoCancel: false
-      });
-      await Promise.all(coupons.map(c => superPb.collection('coupons').delete(c.id, { $autoCancel: false })));
-      await superPb.collection('influencers').delete(id, { $autoCancel: false });
+      await supabase.from('coupons').delete().eq('influencer_id', id);
+      await supabase.from('influencers').delete().eq('id', id);
       toast({ title: "Success", description: "Influencer deleted successfully." });
       fetchInfluencers();
     } catch (error) {
@@ -207,8 +170,8 @@ export default function AdminInfluencersPage() {
   };
 
   const filteredInfluencers = influencers.filter(inf => {
-    const name = inf.expand?.customer_id?.name?.toLowerCase() || '';
-    const email = inf.expand?.customer_id?.email?.toLowerCase() || '';
+    const name = inf.customer?.name?.toLowerCase() || '';
+    const email = inf.customer?.email?.toLowerCase() || '';
     const code = inf.influencer_code?.toLowerCase() || '';
     const q = searchQuery.toLowerCase();
     return name.includes(q) || email.includes(q) || code.includes(q);
@@ -280,10 +243,10 @@ export default function AdminInfluencersPage() {
                   filteredInfluencers.map((inf) => (
                     <TableRow key={inf.id} className="hover:bg-gray-50/50 transition-colors">
                       <TableCell className="font-medium text-gray-900">
-                        {inf.expand?.customer_id?.name || 'Unknown'}
+                        {inf.customer?.name || 'Unknown'}
                       </TableCell>
                       <TableCell className="text-gray-600">
-                        {inf.expand?.customer_id?.email || 'N/A'}
+                        {inf.customer?.email || 'N/A'}
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center px-2 py-1 rounded text-xs font-mono bg-gray-100 text-gray-800 border border-gray-200">

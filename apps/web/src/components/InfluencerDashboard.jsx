@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, TrendingUp, Users, ShoppingBag, Activity, AlertCircle } from 'lucide-react';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 
 const InfluencerDashboard = ({ currentUser }) => {
   const [influencerData, setInfluencerData] = useState(null);
@@ -30,66 +30,37 @@ const InfluencerDashboard = ({ currentUser }) => {
 
       try {
         // 1. Fetch Influencer Record
-        const influencerFilter = `user_id="${currentUser.id}"`;
-        console.log(`[InfluencerDashboard] Fetching influencer record with filter: ${influencerFilter}`);
-        
-        let influencer;
-        try {
-          influencer = await pb.collection('influencers').getFirstListItem(influencerFilter, {
-            $autoCancel: false
-          });
-          console.log('[InfluencerDashboard] Influencer record result:', influencer);
-          setInfluencerData(influencer);
-        } catch (err) {
-          console.error('[InfluencerDashboard] Influencer record error:', err);
-          if (err.status === 404) {
-            setError('Influencer profile not found');
-          } else {
-            setError(`Failed to fetch influencer record: ${err.message}`);
-          }
-          setLoading(false);
-          return; // Stop execution if no influencer profile
-        }
+        const { data: influencer, error: infErr } = await supabase.from('influencers')
+          .select('*').eq('user_id', currentUser.id).single();
 
-        // 2. Fetch Linked Coupons
-        const couponFilter = `influencer_id="${influencer.id}"`;
-        console.log(`[InfluencerDashboard] Fetching coupons with filter: ${couponFilter}`);
-        
-        let activeCoupon = null;
-        try {
-          const couponsList = await pb.collection('coupons').getList(1, 50, {
-            filter: couponFilter,
-            $autoCancel: false
-          });
-          console.log('[InfluencerDashboard] Coupons result:', couponsList);
-          
-          if (couponsList.items.length > 0) {
-            activeCoupon = couponsList.items[0];
-            setCouponData(activeCoupon);
-          } else {
-            console.log('[InfluencerDashboard] No coupons found for this influencer.');
-            // We don't set an error here, we just handle the empty state in the UI
-          }
-        } catch (err) {
-          console.error('[InfluencerDashboard] Coupons error:', err);
-          setError(`Failed to fetch coupons: ${err.message}`);
+        if (infErr || !influencer) {
+          setError('Influencer profile not found');
           setLoading(false);
           return;
         }
+        setInfluencerData(influencer);
 
-        // 3. Fetch Usage Records
-        const usageFilter = `coupon_id.influencer_id.user_id="${currentUser.id}"`;
-        console.log(`[InfluencerDashboard] Fetching coupon_usage records with filter: ${usageFilter}`);
-        
+        // 2. Fetch Linked Coupons
+        let activeCoupon = null;
+        const { data: couponsList } = await supabase.from('coupons').select('*')
+          .eq('influencer_id', influencer.id).limit(50);
+
+        if (couponsList && couponsList.length > 0) {
+          activeCoupon = couponsList[0];
+          setCouponData(activeCoupon);
+        }
+
+        // 3. Fetch Usage Records — resolve nested filter via sequential queries
         try {
-          const records = await pb.collection('coupon_usage').getFullList({
-            filter: usageFilter,
-            expand: 'customer_id',
-            sort: '-created',
-            $autoCancel: false
-          });
-          console.log('[InfluencerDashboard] Coupon usage result:', records);
-          
+          const couponIds = (couponsList ?? []).map(c => c.id);
+          let records = [];
+          if (couponIds.length > 0) {
+            const { data: usageData } = await supabase.from('coupon_usage')
+              .select('*, customer:customer_id(*)')
+              .in('coupon_id', couponIds)
+              .order('created_at', { ascending: false });
+            records = usageData ?? [];
+          }
           setUsageRecords(records);
 
           // 4. Calculate Stats
@@ -112,12 +83,10 @@ const InfluencerDashboard = ({ currentUser }) => {
             avgEarning
           });
         } catch (err) {
-          console.error('[InfluencerDashboard] Coupon usage error:', err);
           setError(`Failed to fetch coupon usage: ${err.message}`);
         }
 
       } catch (err) {
-        console.error('[InfluencerDashboard] Unexpected error:', err);
         setError(`An unexpected error occurred: ${err.message}`);
       } finally {
         setLoading(false);

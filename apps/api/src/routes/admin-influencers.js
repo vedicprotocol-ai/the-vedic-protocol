@@ -1,20 +1,15 @@
 import { Router } from 'express';
-import Pocketbase from 'pocketbase';
-import pb from '../utils/pocketbaseClient.js';
+import supabase from '../utils/supabaseClient.js';
 
 const router = Router();
 
 const verifyAdmin = async (authHeader) => {
     if (!authHeader?.startsWith('Bearer ')) throw new Error('Unauthorized');
     const token = authHeader.slice(7);
-    const tempPb = new Pocketbase('http://localhost:8090');
-    tempPb.authStore.save(token, null);
-    try {
-        const result = await tempPb.collection('customers').authRefresh({ $autoCancel: false });
-        if (result.record?.role !== 'admin') throw new Error('Forbidden');
-    } catch {
-        throw new Error('Unauthorized');
-    }
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) throw new Error('Unauthorized');
+    const { data: customer } = await supabase.from('customers').select('role').eq('id', user.id).single();
+    if (customer?.role !== 'admin') throw new Error('Forbidden');
 };
 
 // POST /admin/influencers — create influencer + coupon
@@ -32,44 +27,36 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        // Find customer by email
-        const customers = await pb.collection('customers').getFullList({
-            filter: `email = "${customer_email}"`,
-            $autoCancel: false
-        });
-        if (customers.length === 0) {
+        const { data: customers } = await supabase.from('customers').select('*').eq('email', customer_email).limit(1);
+        if (!customers || customers.length === 0) {
             return res.status(404).json({ error: 'No customer found with that email. Please ensure they have registered an account first.' });
         }
         const customer = customers[0];
 
-        // Check not already an influencer
-        const existing = await pb.collection('influencers').getFullList({
-            filter: `customer_id = "${customer.id}"`,
-            $autoCancel: false
-        });
-        if (existing.length > 0) {
+        const { data: existing } = await supabase.from('influencers').select('id').eq('customer_id', customer.id).limit(1);
+        if (existing && existing.length > 0) {
             return res.status(409).json({ error: 'This customer is already an influencer.' });
         }
 
-        // Create influencer
-        const newInf = await pb.collection('influencers').create({
+        const { data: newInf, error: infErr } = await supabase.from('influencers').insert({
             user_id: customer.id,
             customer_id: customer.id,
             influencer_code,
             status: status || 'active',
             total_earnings: 0,
-            vedic_points: 0
-        }, { $autoCancel: false });
+            vedic_points: 0,
+        }).select().single();
+        if (infErr) throw infErr;
 
-        // Create coupon
-        await pb.collection('coupons').create({
+        const { error: couponErr } = await supabase.from('coupons').insert({
             coupon_code: influencer_code,
             discount_percentage: Number(discount_percentage) || 10,
             influencer_id: newInf.id,
             influencer_earning_percentage: 10,
             is_active: status === 'active',
-            expires_at: expires_at ? new Date(expires_at).toISOString() : null
-        }, { $autoCancel: false });
+            expires_at: expires_at ? new Date(expires_at).toISOString() : null,
+        });
+        if (couponErr) throw couponErr;
 
         return res.json({ success: true, id: newInf.id });
     } catch (err) {
@@ -90,31 +77,25 @@ router.put('/:id', async (req, res) => {
     const { influencer_code, discount_percentage, expires_at, status } = req.body;
 
     try {
-        await pb.collection('influencers').update(id, {
+        const { error: infErr } = await supabase.from('influencers').update({
             influencer_code,
-            status
-        }, { $autoCancel: false });
+            status,
+        }).eq('id', id);
+        if (infErr) throw infErr;
 
-        const existingCoupons = await pb.collection('coupons').getFullList({
-            filter: `influencer_id = "${id}"`,
-            $autoCancel: false
-        });
+        const { data: existingCoupons } = await supabase.from('coupons').select('*').eq('influencer_id', id);
 
         const couponData = {
             coupon_code: influencer_code,
             discount_percentage: Number(discount_percentage) || 10,
             is_active: status === 'active',
-            expires_at: expires_at ? new Date(expires_at).toISOString() : null
+            expires_at: expires_at ? new Date(expires_at).toISOString() : null,
         };
 
-        if (existingCoupons.length > 0) {
-            await pb.collection('coupons').update(existingCoupons[0].id, couponData, { $autoCancel: false });
+        if (existingCoupons && existingCoupons.length > 0) {
+            await supabase.from('coupons').update(couponData).eq('id', existingCoupons[0].id);
         } else {
-            await pb.collection('coupons').create({
-                ...couponData,
-                influencer_id: id,
-                influencer_earning_percentage: 10
-            }, { $autoCancel: false });
+            await supabase.from('coupons').insert({ ...couponData, influencer_id: id, influencer_earning_percentage: 10 });
         }
 
         return res.json({ success: true });
@@ -135,14 +116,8 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const coupons = await pb.collection('coupons').getFullList({
-            filter: `influencer_id = "${id}"`,
-            $autoCancel: false
-        });
-        await Promise.all(coupons.map(c =>
-            pb.collection('coupons').delete(c.id, { $autoCancel: false })
-        ));
-        await pb.collection('influencers').delete(id, { $autoCancel: false });
+        await supabase.from('coupons').delete().eq('influencer_id', id);
+        await supabase.from('influencers').delete().eq('id', id);
         return res.json({ success: true });
     } catch (err) {
         console.error('Error deleting influencer:', err);

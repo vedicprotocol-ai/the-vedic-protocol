@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import pb from '@/lib/pocketbaseClient';
+import supabase from '@/lib/supabaseClient';
 
 // ── Markdown ↔ HTML ──────────────────────────────────────────────────────────
 function mdToHtml(md) {
@@ -185,8 +185,8 @@ export default function AdminBlogPage() {
 
   const load = async () => {
     try {
-      const records = await pb.collection('blog_posts').getFullList({ sort: '-created', '$autoCancel': false });
-      setPosts(records);
+      const { data: records } = await supabase.from('blog_posts').select('*').order('created_at', { ascending: false });
+      setPosts(records ?? []);
     } catch (e) { console.error(e); }
   };
 
@@ -204,17 +204,17 @@ export default function AdminBlogPage() {
     setSlugError('');
     setLoading(true);
     try {
-      editingId
-        ? await pb.collection('blog_posts').update(editingId, form, { $autoCancel: false })
-        : await pb.collection('blog_posts').create(form, { $autoCancel: false });
+      const { error } = editingId
+        ? await supabase.from('blog_posts').update(form).eq('id', editingId)
+        : await supabase.from('blog_posts').insert(form);
+      if (error) throw error;
       setStatus('Saved ✓');
       setForm(EMPTY);
       setEditingId(null);
       setView('list');
       load();
     } catch (e) {
-      const fieldErrors = e?.response?.data || {};
-      if (fieldErrors.slug?.code === 'validation_not_unique') {
+      if (e?.code === '23505') {
         setSlugError('A post with this slug already exists. Please edit the slug to make it unique.');
         setStatus('Validation error.');
       } else {
@@ -236,7 +236,7 @@ export default function AdminBlogPage() {
 
   const del = async (id) => {
     if (!window.confirm('Delete this post?')) return;
-    await pb.collection('blog_posts').delete(id, { $autoCancel: false });
+    await supabase.from('blog_posts').delete().eq('id', id);
     load();
   };
 
@@ -249,13 +249,8 @@ export default function AdminBlogPage() {
     setView('edit');
   };
 
-  const authRaw  = localStorage.getItem('pocketbase_auth') || '{}';
-  const authData = (() => { try { return JSON.parse(authRaw); } catch { return {}; } })();
-  const role     = authData?.record?.role || authData?.model?.role || '';
-  
-  if (role.toLowerCase() !== 'admin') {
-    return <div style={{ padding: '4rem', textAlign: 'center' }}>Not authorised.</div>;
-  }
+  // Auth guard — ProtectedAdminRoute wraps this page, so this is belt-and-suspenders
+  // (ProtectedAdminRoute already reads role from AuthContext)
 
   return (
     <>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
@@ -14,7 +14,7 @@ const FALLBACK = {
 };
 
 const getImage = (product, index) => {
-  if (product.image) return pb.files.getUrl(product, product.image);
+  if (product.image) return getImageUrl(product.image);
   const name = product.name?.toLowerCase() || '';
   if (name.includes('cleanser') || name.includes('face wash')) return FALLBACK.cleanser;
   return index % 2 === 0 ? FALLBACK.even : FALLBACK.odd;
@@ -220,13 +220,11 @@ export const ShopPage = () => {
   const fetchProducts = useCallback(async (cat) => {
     setLoading(true);
     try {
-      const filterStr = cat !== 'all' ? `category = "${cat}"` : '';
-      const res = await pb.collection('products').getList(1, 60, {
-        filter: filterStr,
-        sort: '-created',
-        $autoCancel: false,
-      });
-      setProducts(res.items);
+      let query = supabase.from('products').select('*').order('created_at', { ascending: false }).limit(60);
+      if (cat !== 'all') query = query.eq('category', cat);
+      const { data, error } = await query;
+      if (error) throw error;
+      setProducts(data ?? []);
     } catch (e) {
       console.error('Shop fetch error:', e);
       setProducts([]);

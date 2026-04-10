@@ -14,7 +14,7 @@
     "express": "^5.0.1",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
-    "pocketbase": "^0.26.8"
+    "@supabase/supabase-js": "^2.49.10"
   },
   "devDependencies": {
     "@eslint/js": "^8.57.0",

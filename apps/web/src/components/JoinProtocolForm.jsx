@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { useToast } from '@/hooks/use-toast.js';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 
 const JoinProtocolForm = () => {
   const [formData, setFormData] = useState({
@@ -35,7 +35,8 @@ const JoinProtocolForm = () => {
 
     setLoading(true);
     try {
-      await pb.collection('contact_submissions').create(formData, { $autoCancel: false });
+      const { error } = await supabase.from('contact_submissions').insert(formData);
+      if (error) throw error;
       toast({
         title: "Success",
         description: "Thank you! We'll be in touch soon."

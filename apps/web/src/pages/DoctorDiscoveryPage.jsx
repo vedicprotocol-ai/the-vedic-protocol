@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
 
 const STYLES = `
   @keyframes vp-backdropIn {
@@ -195,8 +195,9 @@ export default function DoctorDiscoveryPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await pb.collection('doctors').getList(1, 100, { $autoCancel: false });
-      setDoctors(res.items);
+      const { data: res, error } = await supabase.from('doctors').select('*').limit(100);
+      if (error) throw error;
+      setDoctors(res ?? []);
     } catch (err) {
       console.error('Error fetching doctors:', err);
       setError('Failed to load doctors. Please try again.');
@@ -269,12 +270,12 @@ export default function DoctorDiscoveryPage() {
       nextDay.setDate(nextDay.getDate() + 1);
       const nextDayStr = nextDay.toISOString().split('T')[0];
 
-      const res = await pb.collection('availability_slots').getFullList({
-        filter: `doctor_id = "${doctorId}" && date >= "${dateStr} 00:00:00" && date < "${nextDayStr} 00:00:00"`,
-        sort: 'time_slot',
-        $autoCancel: false
-      });
-      setAvailableSlots(res);
+      const { data: res } = await supabase.from('availability_slots').select('*')
+        .eq('doctor_id', doctorId)
+        .gte('date', dateStr + 'T00:00:00')
+        .lt('date', nextDayStr + 'T00:00:00')
+        .order('time_slot');
+      setAvailableSlots(res ?? []);
     } catch (err) {
       console.error('Error fetching slots:', err);
     } finally {
@@ -341,7 +342,7 @@ export default function DoctorDiscoveryPage() {
 
     try {
       // 1. Create appointment
-      await pb.collection('appointments').create({
+      await supabase.from('appointments').insert({
         doctor_id: bookingDoctor.id,
         customer_id: currentUser.id,
         patient_name: formData.patient_name,
@@ -355,9 +356,7 @@ export default function DoctorDiscoveryPage() {
       }, { $autoCancel: false });
 
       // 2. Mark slot as booked
-      await pb.collection('availability_slots').update(selectedSlot.id, {
-        is_available: false
-      }, { $autoCancel: false });
+      await supabase.from('availability_slots').update({ is_available: false }).eq('id', selectedSlot.id);
 
       // 3. Send confirmation email via Brevo
       const BREVO_KEY = import.meta.env.VITE_BREVO_KEY;
@@ -640,7 +639,7 @@ export default function DoctorDiscoveryPage() {
                 >
                   {selectedDoc.photo ? (
                     <img
-                      src={pb.files.getUrl(selectedDoc, selectedDoc.photo)}
+                      src={getImageUrl(selectedDoc.photo)}
                       alt={`Photograph of ${selectedDoc.name}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
                     />

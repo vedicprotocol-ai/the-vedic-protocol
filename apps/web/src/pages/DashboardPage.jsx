@@ -326,10 +326,15 @@ export const DashboardPage = () => {
             </div>
 
             {/* Main content */}
-            <div>
+            <div className="min-w-0">
               {/* Influencer Dashboard Section */}
               {isInfluencer && (
                 <InfluencerDashboard currentUser={currentUser} />
+              )}
+
+              {/* ── ADDRESSES TAB ── */}
+              {tab === 'addresses' && (
+                <AddressesSidebar />
               )}
 
               {/* ── ORDER HISTORY TAB ── */}
@@ -395,9 +400,9 @@ export const DashboardPage = () => {
                       <Link to="/doctors" className="btn btn-dark">Talk to Doctors</Link>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0', overflowX: 'auto' }}>
                       {/* Table header */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 160px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)', minWidth: '600px' }}>
                         <span>Doctor</span>
                         <span>Date</span>
                         <span>Time</span>
@@ -428,6 +433,7 @@ export const DashboardPage = () => {
                               cursor: 'pointer',
                               transition: 'background 0.15s, opacity 0.2s',
                               background: selectedItem?.data?.id === appt.id ? 'var(--off)' : 'transparent',
+                              minWidth: '600px'
                             }}
                             onMouseEnter={e => { if (selectedItem?.data?.id !== appt.id) e.currentTarget.style.background = 'var(--stone)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === appt.id ? 'var(--off)' : 'transparent'; }}
@@ -456,8 +462,11 @@ export const DashboardPage = () => {
 
                             {/* Status badge */}
                             <span style={{
-                              display: 'inline-block',
-                              padding: '4px 10px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              height: '24px',
+                              padding: '0 10px',
                               fontSize: '10px',
                               letterSpacing: '0.06em',
                               textTransform: 'uppercase',

@@ -251,7 +251,7 @@ export default function AdminDoctorsPage() {
       const payload = {
         name: formData.name,
         qualification: formData.qualification,
-        experience_years: formData.experience_years,
+        experience_years: formData.experience_years ? parseInt(formData.experience_years, 10) : null,
         specialization: formData.specialization,
         short_description: formData.short_description,
         full_description: formData.full_description,

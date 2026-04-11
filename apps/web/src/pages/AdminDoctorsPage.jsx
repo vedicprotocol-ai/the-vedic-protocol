@@ -162,8 +162,8 @@ export default function AdminDoctorsPage() {
   // Form state
   const [editingDoc, setEditingDoc] = useState(null);
   const [formData, setFormData] = useState({
-    name: '', qualification: '', experience_years: '', specialization: '',
-    short_description: '', full_description: '', photo: null
+    name: '', title: '', experience: '', specialization: '',
+    bio: '', photo: null
   });
 
   // Availability State
@@ -181,7 +181,7 @@ export default function AdminDoctorsPage() {
   const fetchDoctors = async () => {
     setLoading(true);
     try {
-      const { data: res } = await supabase.from('doctors').select('*').order('created_at', { ascending: false }).limit(100);
+      const { data: res } = await supabase.from('doctors').select('*').order('created', { ascending: false }).limit(100);
       setDoctors(res ?? []);
       if (res && res.length > 0 && !selectedDoctorId) {
         setSelectedDoctorId(res[0].id);
@@ -202,16 +202,15 @@ export default function AdminDoctorsPage() {
     if (doc) {
       setEditingDoc(doc);
       setFormData({
-        name: doc.name || '', qualification: doc.qualification || '',
-        experience_years: doc.experience_years || '', specialization: doc.specialization || '',
-        short_description: doc.short_description || '', full_description: doc.full_description || '',
-        photo: null
+        name: doc.name || '', title: doc.title || '',
+        experience: doc.experience || '', specialization: doc.specialization || '',
+        bio: doc.bio || '', photo: null
       });
     } else {
       setEditingDoc(null);
       setFormData({
-        name: '', qualification: '', experience_years: '', specialization: '',
-        short_description: '', full_description: '', photo: null
+        name: '', title: '', experience: '', specialization: '',
+        bio: '', photo: null
       });
     }
     setIsFormOpen(true);
@@ -235,7 +234,7 @@ export default function AdminDoctorsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      let photoPath = editingDoc?.photo ?? null;
+      let photoPath = editingDoc?.image_url ?? null;
 
       // Upload new photo to Supabase Storage if a file was selected
       if (formData.photo instanceof File) {
@@ -250,12 +249,11 @@ export default function AdminDoctorsPage() {
 
       const payload = {
         name: formData.name,
-        qualification: formData.qualification,
-        experience_years: formData.experience_years ? parseInt(formData.experience_years, 10) : null,
+        title: formData.title,
+        experience: formData.experience,
         specialization: formData.specialization,
-        short_description: formData.short_description,
-        full_description: formData.full_description,
-        photo: photoPath,
+        bio: formData.bio,
+        image_url: photoPath,
       };
 
       if (editingDoc) {
@@ -498,7 +496,7 @@ export default function AdminDoctorsPage() {
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Qualification</th>
+                    <th>Title</th>
                     <th>Experience</th>
                     <th>Specialization</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -515,8 +513,8 @@ export default function AdminDoctorsPage() {
                     doctors.map(doc => (
                       <tr key={doc.id}>
                         <td style={{ fontWeight: 500 }}>{doc.name}</td>
-                        <td>{doc.qualification}</td>
-                        <td>{doc.experience_years} yrs</td>
+                        <td>{doc.title}</td>
+                        <td>{doc.experience}</td>
                         <td>{doc.specialization}</td>
                         <td>
                           <div className="admin-actions" style={{ justifyContent: 'flex-end' }}>
@@ -722,12 +720,12 @@ export default function AdminDoctorsPage() {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 <div className="form-group">
-                  <label className="form-label">Qualification</label>
-                  <input type="text" name="qualification" className="form-input" value={formData.qualification} onChange={handleInputChange} required />
+                  <label className="form-label">Title / Qualification</label>
+                  <input type="text" name="title" className="form-input" value={formData.title} onChange={handleInputChange} placeholder="e.g. MBBS, MD" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Experience (Years)</label>
-                  <input type="number" name="experience_years" className="form-input" value={formData.experience_years} onChange={handleInputChange} required min="0" />
+                  <label className="form-label">Experience</label>
+                  <input type="text" name="experience" className="form-input" value={formData.experience} onChange={handleInputChange} placeholder="e.g. 10 years" />
                 </div>
               </div>
 
@@ -737,19 +735,14 @@ export default function AdminDoctorsPage() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Short Description</label>
-                <textarea name="short_description" className="form-textarea" style={{ minHeight: '80px' }} value={formData.short_description} onChange={handleInputChange} required />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Full Description</label>
-                <textarea name="full_description" className="form-textarea" value={formData.full_description} onChange={handleInputChange} required />
+                <label className="form-label">Bio</label>
+                <textarea name="bio" className="form-textarea" value={formData.bio} onChange={handleInputChange} />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Photo</label>
                 <input type="file" name="photo" className="form-input" accept="image/*" onChange={handleInputChange} style={{ background: 'transparent', border: 'none', padding: '0' }} />
-                {editingDoc && editingDoc.photo && !formData.photo && (
+                {editingDoc && editingDoc.image_url && !formData.photo && (
                   <p style={{ fontSize: '12px', color: 'var(--ink-4)', marginTop: '8px' }}>Current photo exists. Uploading a new one will replace it.</p>
                 )}
               </div>

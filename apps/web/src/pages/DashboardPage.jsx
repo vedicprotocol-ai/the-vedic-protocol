@@ -77,7 +77,7 @@ export const DashboardPage = () => {
           if (dateStr.length === 10 && apptData.doctor_id && apptData.appointment_time) {
             const { data: slots } = await supabase.from('availability_slots').select('id')
               .eq('doctor_id', apptData.doctor_id)
-              .eq('time_slot', apptData.appointment_time)
+              .eq('time', apptData.appointment_time)
               .gte('date', dateStr + 'T00:00:00')
               .lt('date', dateStr + 'T23:59:59')
               .limit(1);
@@ -89,7 +89,7 @@ export const DashboardPage = () => {
       }
 
       if (resolvedSlotId) {
-        await supabase.from('availability_slots').update({ is_available: true }).eq('id', resolvedSlotId);
+        await supabase.from('availability_slots').update({ is_booked: false }).eq('id', resolvedSlotId);
       }
 
       setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, status: 'cancelled' } : a));

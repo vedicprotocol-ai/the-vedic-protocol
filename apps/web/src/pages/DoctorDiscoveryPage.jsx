@@ -274,7 +274,8 @@ export default function DoctorDiscoveryPage() {
         .eq('doctor_id', doctorId)
         .gte('date', dateStr + 'T00:00:00')
         .lt('date', nextDayStr + 'T00:00:00')
-        .order('time_slot');
+        .eq('is_booked', false)
+        .order('time');
       setAvailableSlots(res ?? []);
     } catch (err) {
       console.error('Error fetching slots:', err);
@@ -350,13 +351,13 @@ export default function DoctorDiscoveryPage() {
         email: formData.email,
         problem_brief: formData.problem_brief,
         appointment_date: selectedDate + " 12:00:00.000Z",
-        appointment_time: selectedSlot.time_slot,
+        appointment_time: selectedSlot.time,
         slot_id: selectedSlot.id,
         status: 'booked'
       }, { $autoCancel: false });
 
       // 2. Mark slot as booked
-      await supabase.from('availability_slots').update({ is_available: false }).eq('id', selectedSlot.id);
+      await supabase.from('availability_slots').update({ is_booked: true }).eq('id', selectedSlot.id);
 
       // 3. Send confirmation email via Brevo
       const BREVO_KEY = import.meta.env.VITE_BREVO_KEY;

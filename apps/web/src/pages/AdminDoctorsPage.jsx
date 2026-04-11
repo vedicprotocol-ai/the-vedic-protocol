@@ -183,8 +183,8 @@ export default function AdminDoctorsPage() {
     try {
       const { data: res } = await supabase.from('doctors').select('*').order('created_at', { ascending: false }).limit(100);
       setDoctors(res ?? []);
-      if (res.items.length > 0 && !selectedDoctorId) {
-        setSelectedDoctorId(res.items[0].id);
+      if (res && res.length > 0 && !selectedDoctorId) {
+        setSelectedDoctorId(res[0].id);
       }
     } catch (err) {
       console.error('Error fetching doctors:', err);
@@ -259,9 +259,11 @@ export default function AdminDoctorsPage() {
       };
 
       if (editingDoc) {
-        await supabase.from('doctors').update(payload).eq('id', editingDoc.id);
+        const { error } = await supabase.from('doctors').update(payload).eq('id', editingDoc.id);
+        if (error) throw error;
       } else {
-        await supabase.from('doctors').insert(payload);
+        const { error } = await supabase.from('doctors').insert(payload);
+        if (error) throw error;
       }
       await fetchDoctors();
       handleCloseForm();

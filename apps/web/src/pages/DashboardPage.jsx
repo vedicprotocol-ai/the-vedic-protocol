@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import InfluencerDashboard from '@/components/InfluencerDashboard.jsx';
+import AddressesSidebar from '@/components/AddressesSidebar.jsx';
 
 export const DashboardPage = () => {
   const { currentUser, logout, isInfluencer } = useAuth();
@@ -319,6 +320,9 @@ export const DashboardPage = () => {
                     : <button key={t} onClick={() => { setTab(t); setSelectedItem(null); }} style={{ padding: '12px 0', fontSize: '12px', color: tab === t ? 'var(--ink)' : 'var(--ink-3)', borderTop: '1px solid var(--line)', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontWeight: tab === t ? 500 : 400, letterSpacing: '0.04em' }}>{l}</button>
                 ))}
               </nav>
+
+              {/* Addresses Sidebar Module */}
+              <AddressesSidebar />
             </div>
 
             {/* Main content */}

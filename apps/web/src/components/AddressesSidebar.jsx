@@ -43,7 +43,7 @@ export default function AddressesSidebar() {
         .from('customer_address')
         .select('*')
         .eq('customer_id', currentUser.id)
-        .order('created', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setAddresses(data || []);

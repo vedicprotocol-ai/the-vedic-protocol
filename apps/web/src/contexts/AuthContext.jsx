@@ -102,18 +102,24 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: error.message };
       }
 
-      // Upsert customer profile — handles the case where a Supabase trigger
-      // already inserted a bare row on auth.users creation.
-      const { error: profileErr } = await supabase.from('customers').upsert({
-        id: data.user.id,
-        email,
-        name,
-        phone: phone || null,
-        vedic_points: 0,
-        tier: 'Bronze',
-        role: 'user',
-      }, { onConflict: 'id' });
-      if (profileErr) console.error('Profile upsert error:', profileErr);
+      // If the user has an active session (email confirmation disabled or auto-confirmed),
+      // upsert the profile now. Otherwise the DB trigger handles it on auth.users INSERT,
+      // and the onAuthStateChange SIGNED_IN handler covers the email-confirmation flow.
+      if (data.session) {
+        const { error: profileErr } = await supabase.from('customers').upsert({
+          id: data.user.id,
+          email,
+          name,
+          phone: phone || null,
+          vedic_points: 0,
+          tier: 'Bronze',
+          role: 'user',
+        }, { onConflict: 'id' });
+        if (profileErr) {
+          // Log full error so it's visible in dev tools
+          console.error('Profile upsert error:', JSON.stringify(profileErr));
+        }
+      }
 
       await loadProfile(data.user);
       return { success: true, user: data.user };

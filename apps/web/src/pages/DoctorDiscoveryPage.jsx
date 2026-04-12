@@ -346,12 +346,12 @@ export default function DoctorDiscoveryPage() {
       await supabase.from('appointments').insert({
         doctor_id: bookingDoctor.id,
         customer_id: currentUser.id,
-        patient_name: formData.patient_name,
-        phone_number: formData.phone_number,
+        name: formData.patient_name,
+        phone: formData.phone_number,
         email: formData.email,
-        problem_brief: formData.problem_brief,
-        appointment_date: selectedDate + " 12:00:00.000Z",
-        appointment_time: selectedSlot.time,
+        concerns: formData.problem_brief,
+        date: selectedDate + " 12:00:00.000Z",
+        time: selectedSlot.time,
         slot_id: selectedSlot.id,
         status: 'booked'
       }, { $autoCancel: false });
@@ -395,7 +395,7 @@ export default function DoctorDiscoveryPage() {
                         </tr>
                         <tr>
                           <td style="padding:8px 0;color:#9a9690;border-bottom:1px solid #e8e6e1;">Time</td>
-                          <td style="padding:8px 0;color:#1a1814;border-bottom:1px solid #e8e6e1;">${selectedSlot.time_slot}</td>
+                          <td style="padding:8px 0;color:#1a1814;border-bottom:1px solid #e8e6e1;">${selectedSlot.time}</td>
                         </tr>
                         <tr>
                           <td style="padding:8px 0;color:#9a9690;">Your concern</td>

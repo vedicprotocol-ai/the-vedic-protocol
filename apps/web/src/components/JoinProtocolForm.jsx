@@ -35,7 +35,12 @@ const JoinProtocolForm = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('contact_submissions').insert(formData);
+      const { error } = await supabase.from('contact_submissions').insert({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.inquiry_type,
+        message: formData.message,
+      });
       if (error) throw error;
       toast({
         title: "Success",

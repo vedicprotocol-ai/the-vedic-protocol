@@ -19,7 +19,7 @@ const VedicPointsPage = () => {
         setPointsData(customer);
 
         const { data: pointsHistory } = await supabase.from('loyalty_points').select('*')
-          .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(10);
+          .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(10);
         setHistory(pointsHistory ?? []);
       } catch (error) {
         console.error('Error fetching points data:', error);

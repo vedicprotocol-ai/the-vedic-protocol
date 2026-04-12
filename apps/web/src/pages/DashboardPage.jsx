@@ -48,14 +48,14 @@ export const DashboardPage = () => {
   useEffect(() => {
     if (!currentUser) return;
     supabase.from('orders').select('*')
-      .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(50)
+      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(50)
       .then(({ data }) => { setOrders(data ?? []); setLoading(false); }).catch(() => setLoading(false));
   }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
     supabase.from('appointments').select('*, doctor:doctor_id(*)')
-      .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(50)
+      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(50)
       .then(({ data }) => { setAppointments(data ?? []); setApptLoading(false); })
       .catch(() => setApptLoading(false));
   }, [currentUser]);
@@ -71,13 +71,13 @@ export const DashboardPage = () => {
 
       if (!resolvedSlotId && apptData) {
         try {
-          const raw = apptData.appointment_date || '';
+          const raw = apptData.date || '';
           const dateStr = raw.substring(0, 10); // "2026-03-29"
 
-          if (dateStr.length === 10 && apptData.doctor_id && apptData.appointment_time) {
+          if (dateStr.length === 10 && apptData.doctor_id && apptData.time) {
             const { data: slots } = await supabase.from('availability_slots').select('id')
               .eq('doctor_id', apptData.doctor_id)
-              .eq('time', apptData.appointment_time)
+              .eq('time', apptData.time)
               .gte('date', dateStr + 'T00:00:00')
               .lt('date', dateStr + 'T23:59:59')
               .limit(1);
@@ -174,8 +174,8 @@ export const DashboardPage = () => {
                   <div style={{ padding: '28px 24px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
                       {[
-                        ['Order Number', `#${o.order_number}`],
-                        ['Date', new Date(o.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
+                        ['Order Number', `#${o.legacy_id || o.id.slice(0, 8).toUpperCase()}`],
+                        ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
                         ['Total', `₹${o.total?.toFixed(0)}`],
                         ['Status', o.status],
                       ].map(([label, value]) => (
@@ -203,7 +203,7 @@ export const DashboardPage = () => {
                       <div style={{ marginTop: '20px' }}>
                         <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Shipping Address</p>
                         <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>
-                          {(() => { try { const a = JSON.parse(o.shipping_address); return `${a.address}, ${a.city}, ${a.state} ${a.zip}`; } catch { return o.shipping_address; } })()}
+                          {(() => { const a = o.shipping_address; if (!a) return 'N/A'; if (typeof a === 'object') return `${a.address || ''}, ${a.city || ''}, ${a.state || ''} ${a.zip || ''}`; try { const p = JSON.parse(a); return `${p.address}, ${p.city}, ${p.state} ${p.zip}`; } catch { return String(a); } })()}
                         </p>
                       </div>
                     )}
@@ -216,7 +216,7 @@ export const DashboardPage = () => {
                 const appt = selectedItem.data;
                 const doctorName = appt.doctor?.name || 'Doctor';
                 const doctorSpec = appt.doctor?.specialization || '';
-                const doctorQual = appt.doctor?.qualification || '';
+                const doctorQual = appt.doctor?.title || '';
                 const isCancelled = appt.status === 'cancelled';
                 const isCompleted = appt.status === 'completed';
                 const canCancel   = !isCancelled && !isCompleted;
@@ -225,8 +225,8 @@ export const DashboardPage = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
                       {[
                         ['Doctor', doctorName],
-                        ['Date', formatApptDate(appt.appointment_date)],
-                        ['Time', formatTime(appt.appointment_time)],
+                        ['Date', formatApptDate(appt.date)],
+                        ['Time', formatTime(appt.time)],
                         ['Status', appt.status],
                       ].map(([label, value]) => (
                         <div key={label}>
@@ -248,22 +248,22 @@ export const DashboardPage = () => {
                           <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{doctorQual}</p>
                         </div>
                       )}
-                      {appt.patient_name && (
+                      {appt.name && (
                         <div>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Patient Name</p>
-                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.patient_name}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.name}</p>
                         </div>
                       )}
-                      {appt.phone_number && (
+                      {appt.phone && (
                         <div>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Phone</p>
-                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.phone_number}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.phone}</p>
                         </div>
                       )}
-                      {appt.problem_brief && (
+                      {appt.concerns && (
                         <div style={{ gridColumn: '1 / -1' }}>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Concern</p>
-                          <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>{appt.problem_brief}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>{appt.concerns}</p>
                         </div>
                       )}
                     </div>

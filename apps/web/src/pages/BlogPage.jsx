@@ -255,7 +255,7 @@ const BlogList = () => {
     (async () => {
       try {
         const { data: items } = await supabase.from('blog_posts').select('*')
-          .eq('published', true).order('created_at', { ascending: false }).limit(100);
+          .eq('published', true).order('created', { ascending: false }).limit(100);
         if (!cancelled) {
           setAllPosts(items && items.length > 0
             ? items.map((p) => ({
@@ -263,9 +263,9 @@ const BlogList = () => {
               type: p.type || 'journal',
               title: p.title || '',
               excerpt: p.excerpt || '',
-              body: p.body || '',
+              body: p.content || '',
               readTime: p.read_time || 5,
-              date: new Date(p.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+              date: new Date(p.created).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
               image: p.image_url || POSTS[0].image,
               relatedCategory: p.related_category || 'skincare',
             }))
@@ -423,9 +423,9 @@ const BlogPost = ({ slug }) => {
           type: p.type,
           title: p.title,
           excerpt: p.excerpt,
-          body: p.body || '',
+          body: p.content || '',
           readTime: p.read_time || 5,
-          date: new Date(p.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+          date: new Date(p.created).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
           image: p.image_url || POSTS[0].image,
           relatedCategory: p.related_category || 'skincare',
         };

@@ -71,8 +71,9 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: error.message };
       }
 
-      // Insert customer profile
-      await supabase.from('customers').insert({
+      // Upsert customer profile — handles the case where a Supabase trigger
+      // already inserted a bare row on auth.users creation.
+      const { error: profileErr } = await supabase.from('customers').upsert({
         id: data.user.id,
         email,
         name,
@@ -80,7 +81,8 @@ export const AuthProvider = ({ children }) => {
         vedic_points: 0,
         tier: 'Bronze',
         role: 'user',
-      });
+      }, { onConflict: 'id' });
+      if (profileErr) console.error('Profile upsert error:', profileErr);
 
       await loadProfile(data.user);
       return { success: true, user: data.user };

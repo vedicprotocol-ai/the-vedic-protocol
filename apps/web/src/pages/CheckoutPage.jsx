@@ -32,11 +32,12 @@ export const CheckoutPage = () => {
     try {
       const orderData = {
         customer_id: currentUser.id,
-        order_number: `VP-${Date.now()}`,
+        legacy_id: `VP-${Date.now()}`,
         items: cartItems.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.quantity })),
-        subtotal, tax: 0, total, status: 'pending',
-        shipping_address: JSON.stringify(shipping),
-        payment_method: 'credit_card'
+        subtotal, shipping: shippingCost, tax: 0, total, status: 'pending',
+        shipping_address: shipping,
+        payment_method: 'credit_card',
+        payment_status: 'pending',
       };
       const { data: order, error: orderErr } = await supabase.from('orders').insert(orderData).select().single();
       if (orderErr) throw orderErr;

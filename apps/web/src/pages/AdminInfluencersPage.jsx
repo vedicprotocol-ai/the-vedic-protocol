@@ -36,7 +36,7 @@ export default function AdminInfluencersPage() {
     setLoading(true);
     try {
       const { data: infRes } = await supabase.from('influencers')
-        .select('*, customer:customer_id(*)').order('created_at', { ascending: false });
+        .select('*, customer:customer_id(*)').order('created', { ascending: false });
       const { data: coupRes } = await supabase.from('coupons').select('*');
 
       const merged = (infRes ?? []).map(inf => ({
@@ -67,8 +67,8 @@ export default function AdminInfluencersPage() {
       setFormData({
         customer_email: influencer.customer?.email || '',
         influencer_code: influencer.influencer_code || '',
-        discount_percentage: influencer.coupon?.discount_percentage || 10,
-        expires_at: influencer.coupon?.expires_at ? influencer.coupon.expires_at.split('T')[0] : '',
+        discount_percentage: influencer.coupon?.discount_value || 10,
+        expires_at: influencer.coupon?.valid_until ? influencer.coupon.valid_until.split('T')[0] : '',
         status: influencer.status || 'active'
       });
     } else {
@@ -113,12 +113,12 @@ export default function AdminInfluencersPage() {
         if (infErr) throw infErr;
 
         await supabase.from('coupons').insert({
-          coupon_code: formData.influencer_code,
-          discount_percentage: Number(formData.discount_percentage),
+          code: formData.influencer_code,
+          discount_type: 'percentage',
+          discount_value: Number(formData.discount_percentage),
           influencer_id: newInf.id,
-          influencer_earning_percentage: 10,
-          is_active: formData.status === 'active',
-          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
+          status: formData.status === 'active' ? 'active' : 'inactive',
+          valid_until: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
         });
 
       } else {
@@ -131,16 +131,17 @@ export default function AdminInfluencersPage() {
           .select('*').eq('influencer_id', editingId);
 
         const couponData = {
-          coupon_code: formData.influencer_code,
-          discount_percentage: Number(formData.discount_percentage),
-          is_active: formData.status === 'active',
-          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
+          code: formData.influencer_code,
+          discount_type: 'percentage',
+          discount_value: Number(formData.discount_percentage),
+          status: formData.status === 'active' ? 'active' : 'inactive',
+          valid_until: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
         };
 
         if (existingCoupons && existingCoupons.length > 0) {
           await supabase.from('coupons').update(couponData).eq('id', existingCoupons[0].id);
         } else {
-          await supabase.from('coupons').insert({ ...couponData, influencer_id: editingId, influencer_earning_percentage: 10 });
+          await supabase.from('coupons').insert({ ...couponData, influencer_id: editingId });
         }
       }
 
@@ -254,11 +255,11 @@ export default function AdminInfluencersPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-gray-600">
-                        {inf.coupon?.discount_percentage ? `${inf.coupon.discount_percentage}%` : 'N/A'}
+                        {inf.coupon?.discount_value ? `${inf.coupon.discount_value}%` : 'N/A'}
                       </TableCell>
                       <TableCell className="text-gray-600 text-sm">
-                        {inf.coupon?.expires_at
-                          ? new Date(inf.coupon.expires_at).toLocaleDateString()
+                        {inf.coupon?.valid_until
+                          ? new Date(inf.coupon.valid_until).toLocaleDateString()
                           : 'No Expiry'}
                       </TableCell>
                       <TableCell>

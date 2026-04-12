@@ -168,7 +168,7 @@ const toSlug = (s) =>
   s.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 80);
 
 const EMPTY = {
-  title: '', slug: '', type: 'journal', excerpt: '', body: '',
+  title: '', slug: '', type: 'journal', excerpt: '', content: '',
   read_time: 4, image_url: '', related_category: 'haircare', published: false,
 };
 
@@ -185,7 +185,7 @@ export default function AdminBlogPage() {
 
   const load = async () => {
     try {
-      const { data: records } = await supabase.from('blog_posts').select('*').order('created_at', { ascending: false });
+      const { data: records } = await supabase.from('blog_posts').select('*').order('created', { ascending: false });
       setPosts(records ?? []);
     } catch (e) { console.error(e); }
   };
@@ -339,7 +339,7 @@ export default function AdminBlogPage() {
                 </div>
                 <div className="admin-field">
                   <label>Body</label>
-                  <RichEditor editorKey={editorKey} value={form.body} onChange={v => set('body', v)} />
+                  <RichEditor editorKey={editorKey} value={form.content} onChange={v => set('content', v)} />
                 </div>
                 <div className="admin-field">
                   <label>Image URL (optional)</label>

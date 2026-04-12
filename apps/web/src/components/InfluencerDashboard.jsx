@@ -58,17 +58,14 @@ const InfluencerDashboard = ({ currentUser }) => {
             const { data: usageData } = await supabase.from('coupon_usage')
               .select('*, customer:customer_id(*)')
               .in('coupon_id', couponIds)
-              .order('created_at', { ascending: false });
+              .order('created', { ascending: false });
             records = usageData ?? [];
           }
           setUsageRecords(records);
 
           // 4. Calculate Stats
           const totalEarnings = records.reduce((sum, record) => {
-            // Prefer DB calculated value, fallback to manual calculation if missing
-            const earning = record.influencer_earning || 
-              (record.purchase_amount * ((activeCoupon?.influencer_earning_percentage || 0) / 100));
-            return sum + earning;
+            return sum + (record.commission_amount || 0);
           }, 0);
           
           const uniqueCustomerIds = new Set(records.map(r => r.customer_id));
@@ -97,7 +94,7 @@ const InfluencerDashboard = ({ currentUser }) => {
   }, [currentUser]);
 
   const handleCopy = () => {
-    const codeToCopy = couponData?.coupon_code || influencerData?.influencer_code;
+    const codeToCopy = couponData?.code || influencerData?.influencer_code;
     if (!codeToCopy) return;
     
     navigator.clipboard.writeText(codeToCopy);
@@ -144,7 +141,7 @@ const InfluencerDashboard = ({ currentUser }) => {
 
   if (!influencerData) return null;
 
-  const displayCode = couponData?.coupon_code || influencerData.influencer_code;
+  const displayCode = couponData?.code || influencerData.influencer_code;
 
   return (
     <div className="mb-12 sm:mb-16 px-4 sm:px-0">
@@ -173,7 +170,7 @@ const InfluencerDashboard = ({ currentUser }) => {
                   {displayCode}
                 </p>
                 <p className="text-xs sm:text-sm text-[#8c8c8c] mb-5 sm:mb-6">
-                  {couponData.discount_percentage}% discount for your audience
+                  {couponData.discount_value}% discount for your audience
                 </p>
               </>
             ) : (

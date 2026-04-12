@@ -14,7 +14,7 @@ const FALLBACK = {
 };
 
 const getImage = (product, index) => {
-  if (product.image) return getImageUrl(product.image);
+  if (product.image_url) return getImageUrl(product.image_url);
   const name = product.name?.toLowerCase() || '';
   if (name.includes('cleanser') || name.includes('face wash')) return FALLBACK.cleanser;
   return index % 2 === 0 ? FALLBACK.even : FALLBACK.odd;
@@ -220,7 +220,7 @@ export const ShopPage = () => {
   const fetchProducts = useCallback(async (cat) => {
     setLoading(true);
     try {
-      let query = supabase.from('products').select('*').order('created_at', { ascending: false }).limit(60);
+      let query = supabase.from('products').select('*').order('created', { ascending: false }).limit(60);
       if (cat !== 'all') query = query.eq('category', cat);
       const { data, error } = await query;
       if (error) throw error;

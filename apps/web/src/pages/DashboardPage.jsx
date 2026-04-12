@@ -452,12 +452,12 @@ export const DashboardPage = () => {
 
                             {/* Date */}
                             <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>
-                              {formatApptDate(appt.appointment_date)}
+                              {formatApptDate(appt.date)}
                             </span>
 
                             {/* Time with AM/PM */}
                             <span style={{ fontSize: '13px', color: 'var(--ink)', fontFamily: 'var(--serif)' }}>
-                              {formatTime(appt.appointment_time)}
+                              {formatTime(appt.time)}
                             </span>
 
                             {/* Status badge */}
@@ -526,9 +526,9 @@ export const VedicPointsPage = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser) { setLoading(false); return; }
-    pb.collection('loyalty_points').getList(1, 20, {
-      filter: `customer_id = "${currentUser.id}"`, sort: '-created', $autoCancel: false
-    }).then(r => { setHistory(r.items); setLoading(false); }).catch(() => setLoading(false));
+    supabase.from('loyalty_points').select('*')
+      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(20)
+      .then(({ data }) => { setHistory(data ?? []); setLoading(false); }).catch(() => setLoading(false));
   }, [isAuthenticated, currentUser]);
 
   const tiers = [
@@ -662,8 +662,10 @@ export const OrderConfirmationPage = () => {
     const stateOrder = location?.order;
     if (stateOrder) { setOrder(stateOrder); setPoints(location?.pointsEarned || 0); setLoading(false); return; }
     if (id) {
-      pb.collection('orders').getOne(id, { $autoCancel: false })
-        .then(o => { setOrder(o); setPoints(Math.floor(o.total * 10)); })
+      supabase.from('orders').select('*').eq('id', id).single()
+        .then(({ data: o, error }) => {
+          if (!error && o) { setOrder(o); setPoints(Math.floor(o.total * 10)); }
+        })
         .catch(console.error)
         .finally(() => setLoading(false));
     } else { setLoading(false); }
@@ -686,7 +688,7 @@ export const OrderConfirmationPage = () => {
   return (
     <>
       <Helmet>
-        <title>Order Confirmed — {order.order_number} | The Vedic Protocol</title>
+        <title>Order Confirmed — {order.legacy_id || order.id?.slice(0, 8).toUpperCase()} | The Vedic Protocol</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <Header />
@@ -709,7 +711,7 @@ export const OrderConfirmationPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '28px', paddingBottom: '28px', borderBottom: '1px solid var(--line)' }}>
               <div>
                 <p style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '8px' }}>Order Number</p>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)' }}>{order.order_number}</p>
+                <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)' }}>{order.legacy_id || order.id?.slice(0, 8).toUpperCase()}</p>
               </div>
               <div>
                 <p style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '8px' }}>Estimated Delivery</p>

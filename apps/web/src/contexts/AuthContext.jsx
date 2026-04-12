@@ -15,7 +15,9 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // Fetch the customer profile row and merge with the auth user
+  // Fetch the customer profile row and merge with the auth user.
+  // Falls back to auth user_metadata (name/phone) when the customers row
+  // doesn't exist yet so the dashboard always has a name to show.
   const loadProfile = async (authUser) => {
     if (!authUser) { setCurrentUser(null); return; }
     const { data: profile } = await supabase
@@ -23,7 +25,13 @@ export const AuthProvider = ({ children }) => {
       .select('*')
       .eq('id', authUser.id)
       .single();
-    setCurrentUser(profile ? { ...authUser, ...profile } : authUser);
+    if (profile) {
+      setCurrentUser({ ...authUser, ...profile });
+    } else {
+      // Profile row missing — use auth metadata as a temporary fallback
+      const meta = authUser.user_metadata || {};
+      setCurrentUser({ ...authUser, name: meta.name || '', phone: meta.phone || '' });
+    }
   };
 
   useEffect(() => {
@@ -33,8 +41,25 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      loadProfile(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user ?? null;
+      // On email confirmation, ensure the customers row exists
+      if (event === 'SIGNED_IN' && user) {
+        const { data: existing } = await supabase.from('customers').select('id').eq('id', user.id).single();
+        if (!existing) {
+          const meta = user.user_metadata || {};
+          await supabase.from('customers').upsert({
+            id: user.id,
+            email: user.email,
+            name: meta.name || '',
+            phone: meta.phone || null,
+            vedic_points: 0,
+            tier: 'Bronze',
+            role: 'user',
+          }, { onConflict: 'id' });
+        }
+      }
+      loadProfile(user);
     });
 
     return () => subscription.unsubscribe();
@@ -63,7 +88,13 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      // Store name & phone in auth metadata so they're always available
+      // even before the customers profile row is created.
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name, phone: phone || '' } },
+      });
       if (error) {
         if (error.message?.toLowerCase().includes('already registered')) {
           return { success: false, error: 'This email is already registered. Try logging in or use a different email.' };

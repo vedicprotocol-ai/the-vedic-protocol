@@ -428,8 +428,15 @@ export const SignupPage = () => {
 		const result = await signup(form.name, form.email, form.password, form.passwordConfirm, form.phone);
 		
 		if (result.success) {
-			setSuccessMsg('Account created successfully! Redirecting to dashboard...');
-			setTimeout(() => { navigate('/dashboard'); }, 2500);
+			if (result.emailConfirmRequired) {
+				// Email confirmation is enabled in Supabase — no session yet
+				setSuccessMsg('Account created! Please check your email to confirm your registration before logging in.');
+				setLoading(false);
+			} else {
+				// Session is active — hard redirect so ProtectedRoute sees the live session
+				setSuccessMsg('Account created successfully! Redirecting to dashboard...');
+				setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+			}
 		} else {
 			const msg = result.error || '';
 			if (msg.includes('email is already registered')) {

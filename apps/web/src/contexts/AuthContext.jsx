@@ -43,11 +43,13 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
-      // On email confirmation, ensure the customers row exists
       if (event === 'SIGNED_IN' && user) {
-        const { data: existing } = await supabase.from('customers').select('id').eq('id', user.id).single();
+        const meta = user.user_metadata || {};
+        // Check whether the customers row has name filled in
+        const { data: existing } = await supabase
+          .from('customers').select('id, name, phone').eq('id', user.id).single();
         if (!existing) {
-          const meta = user.user_metadata || {};
+          // Row doesn't exist yet (trigger not installed) — create it
           await supabase.from('customers').upsert({
             id: user.id,
             email: user.email,
@@ -57,6 +59,12 @@ export const AuthProvider = ({ children }) => {
             tier: 'Bronze',
             role: 'user',
           }, { onConflict: 'id' });
+        } else if ((!existing.name || existing.name === '') && meta.name) {
+          // Row exists but name is empty (trigger ran before metadata was set) — patch it
+          await supabase.from('customers').update({
+            name: meta.name,
+            phone: existing.phone || meta.phone || null,
+          }).eq('id', user.id);
         }
       }
       loadProfile(user);
@@ -102,27 +110,27 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: error.message };
       }
 
-      // If the user has an active session (email confirmation disabled or auto-confirmed),
-      // upsert the profile now. Otherwise the DB trigger handles it on auth.users INSERT,
-      // and the onAuthStateChange SIGNED_IN handler covers the email-confirmation flow.
-      if (data.session) {
-        const { error: profileErr } = await supabase.from('customers').upsert({
-          id: data.user.id,
-          email,
-          name,
-          phone: phone || null,
-          vedic_points: 0,
-          tier: 'Bronze',
-          role: 'user',
-        }, { onConflict: 'id' });
-        if (profileErr) {
-          // Log full error so it's visible in dev tools
-          console.error('Profile upsert error:', JSON.stringify(profileErr));
-        }
+      // Always upsert the customers row. When email confirmation is disabled
+      // (data.session is set) this succeeds immediately. When email confirmation
+      // is enabled (no session yet) this may fail with RLS — the DB trigger and
+      // the SIGNED_IN handler above act as fallbacks.
+      const { error: profileErr } = await supabase.from('customers').upsert({
+        id: data.user.id,
+        email,
+        name,
+        phone: phone || null,
+        vedic_points: 0,
+        tier: 'Bronze',
+        role: 'user',
+      }, { onConflict: 'id' });
+      if (profileErr) {
+        console.error('Profile upsert error:', JSON.stringify(profileErr));
       }
 
       await loadProfile(data.user);
-      return { success: true, user: data.user };
+      // emailConfirmRequired is true when Supabase email confirmation is enabled —
+      // the caller can show a "check your email" message instead of redirecting.
+      return { success: true, user: data.user, emailConfirmRequired: !data.session };
     } catch (error) {
       return { success: false, error: error.message || 'Registration failed. Please try again.' };
     }

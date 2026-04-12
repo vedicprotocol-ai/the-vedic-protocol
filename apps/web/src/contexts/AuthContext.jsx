@@ -131,6 +131,8 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
+    // Navigate to home — works in both browser and any future SSR context
+    window.location.href = '/';
   };
 
   const getIsAdmin = () => {

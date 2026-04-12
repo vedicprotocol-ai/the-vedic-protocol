@@ -13,6 +13,7 @@ import AddressesSidebar from '@/components/AddressesSidebar.jsx';
 
 export const DashboardPage = () => {
   const { currentUser, logout, isInfluencer } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders]           = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading]         = useState(true);

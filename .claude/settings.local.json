@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find \"e:/TheVedicProtocol/VedicProtocol_GitHub\" -type f \\\\\\( -name \"*.js\" -o -name \"*.jsx\" -o -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.json\" \\\\\\) -exec grep -l \"pocketbase\\\\|PocketBase\" {} \\\\;)"
+      "Bash(find \"e:/TheVedicProtocol/VedicProtocol_GitHub\" -type f \\\\\\( -name \"*.js\" -o -name \"*.jsx\" -o -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.json\" \\\\\\) -exec grep -l \"pocketbase\\\\|PocketBase\" {} \\\\;)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

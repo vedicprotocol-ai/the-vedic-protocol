@@ -68,7 +68,7 @@ const ProductDetailPage = () => {
   const accordions = [
     ['Clinical Intent', product.benefits || 'Formulated to optimise barrier function and restore cellular homeostasis through targeted botanical actives.'],
     ['Active Ingredients', product.ingredients || 'Proprietary botanical complex. Full ingredient list available on packaging.'],
-    ['Protocol Instructions', product.usage_instructions || 'Apply 2–3 drops to cleansed skin morning and evening. Pat gently until absorbed.'],
+    ['Protocol Instructions', product.how_to_use || 'Apply 2–3 drops to cleansed skin morning and evening. Pat gently until absorbed.'],
   ];
 
   return (

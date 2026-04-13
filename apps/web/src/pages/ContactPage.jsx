@@ -5,6 +5,7 @@ import React, { useState, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
+import supabase from '@/lib/supabaseClient.js';
 
 export const ContactPage = () => {
   const [form, setForm] = useState({ name:'', email:'', inquiry_type:'product_question', message:'' });
@@ -116,6 +117,16 @@ export const ContactPage = () => {
         console.warn('Acknowledgement email failed:', ackErr);
       }
       
+      // Save to DB (best-effort — does not block success if it fails)
+      supabase.from('contact_submissions').insert({
+        name: form.name,
+        email: form.email,
+        subject: form.inquiry_type,
+        message: form.message,
+      }).then(({ error }) => {
+        if (error) console.warn('contact_submissions insert failed:', error.message);
+      });
+
       setStatus('done');
       setForm({ name:'', email:'', inquiry_type:'product_question', message:'' });
       

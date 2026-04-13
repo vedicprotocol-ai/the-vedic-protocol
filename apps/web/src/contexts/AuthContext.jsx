@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
             phone: meta.phone || null,
             vedic_points: 0,
             tier: 'Bronze',
-            role: 'user',
+            role: 'customer',
           }, { onConflict: 'id' });
         } else if ((!existing.name || existing.name === '') && meta.name) {
           // Row exists but name is empty (trigger ran before metadata was set) — patch it
@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
         phone: phone || null,
         vedic_points: 0,
         tier: 'Bronze',
-        role: 'user',
+        role: 'customer',
       }, { onConflict: 'id' });
       if (profileErr) {
         console.error('Profile upsert error:', JSON.stringify(profileErr));

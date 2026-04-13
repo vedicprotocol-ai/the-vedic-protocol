@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast.js';
+import supabase from '@/lib/supabaseClient.js';
 
 const NewsletterSignup = ({ className = '' }) => {
   const [email, setEmail] = useState('');
@@ -15,6 +16,29 @@ const NewsletterSignup = ({ className = '' }) => {
     try {
       const BREVO_KEY = import.meta.env.VITE_BREVO_KEY;
       if (!BREVO_KEY) throw new Error('Email service is not configured.');
+
+      // Save to Supabase (duplicate email is silently ignored via unique constraint)
+      const { error: dbErr } = await supabase
+        .from('newsletter_subscribers')
+        .insert({ email });
+      if (dbErr && dbErr.code !== '23505') {
+        console.warn('newsletter_subscribers insert failed:', dbErr.message);
+      }
+
+      // Add to Brevo contacts list
+      try {
+        await fetch('https://api.brevo.com/v3/contacts', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'api-key': BREVO_KEY,
+          },
+          body: JSON.stringify({ email, updateEnabled: true }),
+        });
+      } catch (contactErr) {
+        console.warn('Brevo contact add failed:', contactErr);
+      }
 
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',

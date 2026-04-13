@@ -198,7 +198,7 @@ export default function AdminBlogPage() {
   };
 
   const save = async () => {
-    if (!form.title || !form.body) { setStatus('Title and body are required.'); return; }
+    if (!form.title || !form.content) { setStatus('Title and content are required.'); return; }
     if (!form.slug) { setStatus('Slug is required.'); return; }
     setStatus('Saving…');
     setSlugError('');

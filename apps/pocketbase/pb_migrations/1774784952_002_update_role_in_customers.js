@@ -2,7 +2,7 @@
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("customers");
   const field = collection.fields.getByName("role");
-  field.values = ["user", "influencer", "Admin", "Customer"];
+  field.values = ["user", "influencer", "admin", "Customer"];
   return app.save(collection);
 }, (app) => {
   const collection = app.findCollectionByNameOrId("customers");

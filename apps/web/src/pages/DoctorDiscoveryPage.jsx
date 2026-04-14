@@ -777,7 +777,7 @@ export default function DoctorDiscoveryPage() {
                 </div>
                 <h2 style={{ fontFamily: 'var(--serif)', fontSize: '28px', color: 'var(--ink)', marginBottom: '12px' }}>Booking Confirmed</h2>
                 <p style={{ color: 'var(--ink-3)', marginBottom: '32px' }}>
-                  Your consultation with {bookingDoctor.name} is scheduled for {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''} at {selectedSlot?.time_slot}.
+                  Your consultation with {bookingDoctor.name} is scheduled for {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''} at {selectedSlot?.time}.
                 </p>
                 <p style={{ fontSize: '12px', color: 'var(--ink-4)' }}>Closing automatically...</p>
               </div>
@@ -922,10 +922,10 @@ export default function DoctorDiscoveryPage() {
                             key={slot.id}
                             type="button"
                             className={`time-btn ${selectedSlot?.id === slot.id ? 'active' : ''}`}
-                            disabled={!slot.is_available || bookingSubmitting}
+                            disabled={slot.is_booked || bookingSubmitting}
                             onClick={() => { setSelectedSlot(slot); setSlotError(''); }}
                           >
-                            {slot.time_slot}
+                            {slot.time}
                           </button>
                         ))}
                       </div>
@@ -1033,7 +1033,7 @@ export default function DoctorDiscoveryPage() {
                         <span>Schedule</span>
                         <span style={{ color: 'var(--ink)' }}>
                           {selectedSlot && selectedDate
-                            ? `${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${selectedSlot.time_slot}`
+                            ? `${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${selectedSlot.time}`
                             : 'Not selected'}
                         </span>
                       </div>

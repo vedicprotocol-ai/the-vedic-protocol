@@ -266,6 +266,7 @@ export const LoginPage = () => {
 	const [errors, setErrors] = useState({});
 	const [loading, setLoading] = useState(false);
 	const [serverError, setServerError] = useState('');
+	const [showResetHint, setShowResetHint] = useState(false);
 	const { login } = useAuth();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -282,6 +283,7 @@ export const LoginPage = () => {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setServerError('');
+		setShowResetHint(false);
 		const errs = validate();
 		if (Object.keys(errs).length) { setErrors(errs); return; }
 		setErrors({});
@@ -291,6 +293,11 @@ export const LoginPage = () => {
 			navigate(from, { replace: true });
 		} else {
 			setServerError(result.error || 'Invalid email or password. Please try again.');
+			// Show the password-reset hint for credential failures so users can
+			// self-serve without contacting support.
+			if (!result.errorCode || result.errorCode === 'invalid_credentials') {
+				setShowResetHint(true);
+			}
 			setLoading(false);
 		}
 	};
@@ -303,13 +310,37 @@ export const LoginPage = () => {
 			</Helmet>
 			<AuthCard title="Welcome back." subtitle="Enter your credentials to continue">
 				<ErrorBanner message={serverError} />
+				{showResetHint && (
+					<div
+						style={{
+							padding: '12px 14px',
+							background: '#fffbeb',
+							border: '1px solid #fde68a',
+							borderRadius: '8px',
+							marginBottom: '16px',
+							fontSize: '12px',
+							color: '#92400e',
+							lineHeight: 1.6,
+						}}
+					>
+						Forgotten your password?{' '}
+						<Link
+							to={`/forgot-password`}
+							state={{ prefillEmail: email }}
+							style={{ color: '#92400e', fontWeight: 600, textDecoration: 'underline' }}
+						>
+							Reset it here
+						</Link>{' '}
+						and we'll send you a link to set a new one.
+					</div>
+				)}
 				<form onSubmit={handleSubmit} noValidate>
 					<F
 						label="Email"
 						id="l-email"
 						type="email"
 						value={email}
-						onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: '' })); }}
+						onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: '' })); setShowResetHint(false); }}
 						error={errors.email}
 						required
 						autoComplete="email"
@@ -636,7 +667,8 @@ export const SignupPage = () => {
 	 FORGOT PASSWORD PAGE
 	 ═══════════════════════════════════════════════ */
 export const ForgotPasswordPage = () => {
-	const [email, setEmail] = useState('');
+	const location = useLocation();
+	const [email, setEmail] = useState(location.state?.prefillEmail || '');
 	const [emailError, setEmailError] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [done, setDone] = useState(false);

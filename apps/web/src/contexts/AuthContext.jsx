@@ -67,7 +67,32 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { success: false, error: 'Invalid email or password. Please try again.' };
+      if (error) {
+        // Log the real error so developers can diagnose via browser console.
+        console.error('[Auth] signInWithPassword failed — code:', error.code, '| status:', error.status, '| message:', error.message);
+        // Rate limiting: too many attempts in a short window.
+        if (error.code === 'over_request_rate_limit' || error.status === 429) {
+          return {
+            success: false,
+            errorCode: 'rate_limited',
+            error: 'Too many login attempts. Please wait a few minutes and try again.',
+          };
+        }
+        // Email not yet confirmed (email_confirmed_at or confirmed_at is null in auth.users).
+        if (error.code === 'email_not_confirmed') {
+          return {
+            success: false,
+            errorCode: 'email_not_confirmed',
+            error: 'Your email address has not been confirmed yet. Please check your inbox for a confirmation link.',
+          };
+        }
+        // Default: invalid_credentials or unexpected error.
+        return {
+          success: false,
+          errorCode: error.code || 'invalid_credentials',
+          error: 'Invalid email or password. Please try again.',
+        };
+      }
       // Profile loading failure must not block a successful auth — set the bare
       // auth user as a fallback so isAuthenticated is true and navigate works.
       try {
@@ -76,8 +101,9 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(data.user);
       }
       return { success: true, user: data.user };
-    } catch {
-      return { success: false, error: 'Invalid email or password. Please try again.' };
+    } catch (err) {
+      console.error('[Auth] login exception:', err);
+      return { success: false, errorCode: 'unknown', error: 'Invalid email or password. Please try again.' };
     }
   };
 

@@ -136,7 +136,7 @@ export const DashboardPage = () => {
                 {currentUser?.name || 'Welcome back'}.
               </h1>
             </div>
-            <button className="btn btn-light" onClick={logout} style={{ fontSize: '11px' }}>Log Out</button>
+            <button type="button" className="btn btn-light" onClick={logout} style={{ fontSize: '11px' }}>Log Out</button>
           </div>
 
           {/* ── Detail Panel — appears when a row is clicked ── */}

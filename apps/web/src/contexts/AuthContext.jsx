@@ -186,10 +186,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
-    // Navigate to home — works in both browser and any future SSR context
-    window.location.href = '/';
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('signOut timeout')), 3000)
+        ),
+      ]);
+    } catch (err) {
+      console.warn('signOut error (proceeding anyway):', err.message);
+    } finally {
+      setCurrentUser(null);
+      window.location.href = '/';
+    }
   };
 
   const getIsAdmin = () => {

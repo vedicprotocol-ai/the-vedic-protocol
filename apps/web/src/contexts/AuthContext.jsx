@@ -20,12 +20,14 @@ export const AuthProvider = ({ children }) => {
   // doesn't exist yet so the dashboard always has a name to show.
   const loadProfile = async (authUser) => {
     if (!authUser) { setCurrentUser(null); return; }
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('customers')
       .select('*')
       .eq('id', authUser.id)
       .single();
+    console.log('[AuthContext] profile fetched:', profile, 'error:', profileError);
     if (profile) {
+      console.log('[AuthContext] role value:', profile.role, '| isAdmin:', profile.role?.toLowerCase() === 'admin');
       setCurrentUser({ ...authUser, ...profile });
     } else {
       // Profile row missing — use auth metadata as a temporary fallback

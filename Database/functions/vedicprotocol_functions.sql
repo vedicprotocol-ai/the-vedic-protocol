@@ -20,7 +20,7 @@ BEGIN
     NULLIF(NEW.raw_user_meta_data->>'phone', ''),
     0,
     'Bronze',
-    'user'
+    'customer'
   )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,

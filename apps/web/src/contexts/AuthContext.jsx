@@ -77,7 +77,13 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { success: false, error: 'Invalid email or password. Please try again.' };
-      await loadProfile(data.user);
+      // Profile loading failure must not block a successful auth — set the bare
+      // auth user as a fallback so isAuthenticated is true and navigate works.
+      try {
+        await loadProfile(data.user);
+      } catch {
+        setCurrentUser(data.user);
+      }
       return { success: true, user: data.user };
     } catch {
       return { success: false, error: 'Invalid email or password. Please try again.' };
@@ -186,19 +192,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    // Clear React state immediately so ProtectedRoute stops guarding.
+    setCurrentUser(null);
     try {
+      // Resolve (not reject) after 3 s so the redirect always fires even if
+      // the Supabase server is slow — signOut clears localStorage before the
+      // network call, so the local session is gone regardless of the timeout.
       await Promise.race([
         supabase.auth.signOut(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('signOut timeout')), 3000)
-        ),
+        new Promise(resolve => setTimeout(resolve, 3000)),
       ]);
     } catch (err) {
       console.warn('signOut error (proceeding anyway):', err.message);
-    } finally {
-      setCurrentUser(null);
-      window.location.href = '/';
     }
+    window.location.href = '/';
   };
 
   const getIsAdmin = () => {

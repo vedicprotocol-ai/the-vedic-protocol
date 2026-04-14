@@ -96,6 +96,31 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      // ── Duplicate check ────────────────────────────────────────────────
+      // The RPC runs as SECURITY DEFINER so it can bypass RLS and check the
+      // customers table without an active session.
+      const { data: dupCheck, error: dupErr } = await supabase.rpc(
+        'check_registration_exists',
+        { p_email: email, p_phone: phone || null }
+      );
+      if (!dupErr && dupCheck) {
+        if (dupCheck.email_taken) {
+          return {
+            success: false,
+            error: 'This email is already registered. Please log in or use a different email address.',
+          };
+        }
+        if (dupCheck.phone_taken) {
+          return {
+            success: false,
+            error: 'This phone number is already registered. Please use a different number or log in to your existing account.',
+          };
+        }
+      }
+      // If dupErr (RPC not yet deployed), fall through — Supabase auth and the
+      // identities check below still catch duplicate emails as a fallback.
+
+      // ── Create auth user ───────────────────────────────────────────────
       // Store name & phone in auth metadata so they're always available
       // even before the customers profile row is created.
       const { data, error } = await supabase.auth.signUp({
@@ -109,9 +134,22 @@ export const AuthProvider = ({ children }) => {
       });
       if (error) {
         if (error.message?.toLowerCase().includes('already registered')) {
-          return { success: false, error: 'This email is already registered. Try logging in or use a different email.' };
+          return {
+            success: false,
+            error: 'This email is already registered. Please log in or use a different email address.',
+          };
         }
         return { success: false, error: error.message };
+      }
+
+      // When Supabase email-confirm mode is ON, signing up with an already-used
+      // email does NOT return an error — it silently "succeeds" but the returned
+      // user object has an empty identities array.  Catch that here.
+      if (!data.user?.identities || data.user.identities.length === 0) {
+        return {
+          success: false,
+          error: 'This email is already registered. Please log in or use a different email address.',
+        };
       }
 
       const emailConfirmRequired = !data.session;

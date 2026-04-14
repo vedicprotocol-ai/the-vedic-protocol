@@ -461,8 +461,10 @@ export const SignupPage = () => {
 			}
 		} else {
 			const msg = result.error || '';
-			if (msg.includes('email is already registered')) {
+			if (msg.toLowerCase().includes('email is already registered') || msg.toLowerCase().includes('email address')) {
 				setErrors({ email: msg });
+			} else if (msg.toLowerCase().includes('phone number is already registered') || msg.toLowerCase().includes('different number')) {
+				setErrors({ phone: msg });
 			} else if (msg.includes('Password must be at least')) {
 				setErrors({ password: msg });
 			} else {

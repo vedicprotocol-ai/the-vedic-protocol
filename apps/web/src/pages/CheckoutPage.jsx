@@ -12,7 +12,7 @@ import Footer from '@/components/Footer.jsx';
 
 export const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, canOrder } = useAuth();
   const { cartItems, getCartTotal, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,43 @@ export const CheckoutPage = () => {
   const total = subtotal + shippingCost - pointsDiscount;
 
   if (cartItems.length === 0) { navigate('/cart'); return null; }
+
+  // Require verified email + saved phone before checkout
+  if (!canOrder) {
+    const emailConfirmed = !!currentUser?.email_confirmed_at;
+    const hasPhone = !!currentUser?.phone;
+    return (
+      <>
+        <Helmet>
+          <title>Checkout | The Vedic Protocol</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
+        <Header />
+        <main id="main">
+          <div style={{ maxWidth: '520px', margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
+            <p style={{ fontFamily: 'var(--serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)', marginBottom: '16px' }}>
+              One more step.
+            </p>
+            {!emailConfirmed && (
+              <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8, marginBottom: '12px' }}>
+                Please confirm your email address before placing an order. Check your inbox for the confirmation link we sent when you registered.
+              </p>
+            )}
+            {emailConfirmed && !hasPhone && (
+              <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8, marginBottom: '12px' }}>
+                A phone number is required to place an order. Please add it in your{' '}
+                <Link to="/dashboard" style={{ color: 'var(--gold)' }}>dashboard</Link>.
+              </p>
+            )}
+            <Link to="/dashboard" className="btn btn-dark" style={{ display: 'inline-block', marginTop: '16px' }}>
+              Go to Dashboard
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   const handleOrder = async () => {
     setLoading(true); setError('');

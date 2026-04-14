@@ -101,7 +101,11 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name, phone: phone || '' } },
+        options: {
+          data: { name, phone: phone || '' },
+          // After email confirmation the user lands directly on the dashboard.
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
       });
       if (error) {
         if (error.message?.toLowerCase().includes('already registered')) {
@@ -110,27 +114,34 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: error.message };
       }
 
-      // Always upsert the customers row. When email confirmation is disabled
-      // (data.session is set) this succeeds immediately. When email confirmation
-      // is enabled (no session yet) this may fail with RLS — the DB trigger and
-      // the SIGNED_IN handler above act as fallbacks.
-      const { error: profileErr } = await supabase.from('customers').upsert({
-        id: data.user.id,
-        email,
-        name,
-        phone: phone || null,
-        vedic_points: 0,
-        tier: 'Bronze',
-        role: 'customer',
-      }, { onConflict: 'id' });
-      if (profileErr) {
-        console.error('Profile upsert error:', JSON.stringify(profileErr));
+      const emailConfirmRequired = !data.session;
+
+      if (!emailConfirmRequired) {
+        // Session is live — upsert the profile row and load it into state.
+        const { error: profileErr } = await supabase.from('customers').upsert({
+          id: data.user.id,
+          email,
+          name,
+          phone: phone || null,
+          vedic_points: 0,
+          tier: 'Bronze',
+          role: 'customer',
+        }, { onConflict: 'id' });
+        if (profileErr) {
+          console.error('Profile upsert error:', JSON.stringify(profileErr));
+        }
+        await loadProfile(data.user);
+      } else {
+        // Email confirmation is required — no session yet, so RLS would block
+        // any DB reads. The DB trigger (handle_new_user) already created the
+        // customers row from auth metadata. Just surface what we know locally
+        // so the UI has a name to show on the confirmation screen.
+        setCurrentUser({ ...data.user, name, phone: phone || '' });
       }
 
-      await loadProfile(data.user);
       // emailConfirmRequired is true when Supabase email confirmation is enabled —
       // the caller can show a "check your email" message instead of redirecting.
-      return { success: true, user: data.user, emailConfirmRequired: !data.session };
+      return { success: true, user: data.user, emailConfirmRequired };
     } catch (error) {
       return { success: false, error: error.message || 'Registration failed. Please try again.' };
     }
@@ -147,10 +158,18 @@ export const AuthProvider = ({ children }) => {
     return currentUser?.role?.toLowerCase() === 'admin';
   };
 
+  // canOrder: true only when the user's email is confirmed AND a phone number
+  // is on record. Checkout is blocked until both conditions are met.
+  const canOrder = !!(
+    currentUser?.email_confirmed_at &&
+    currentUser?.phone
+  );
+
   const value = {
     currentUser,
     isAuthenticated: !!currentUser,
     isAdmin: getIsAdmin(),
+    canOrder,
     login,
     signup,
     logout,

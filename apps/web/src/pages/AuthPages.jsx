@@ -417,25 +417,47 @@ export const SignupPage = () => {
 		e.preventDefault();
 		setServerError('');
 		setSuccessMsg('');
-		
+
 		const errs = validate();
 		if (Object.keys(errs).length) { setErrors(errs); return; }
-		
+
 		setErrors({});
 		setLoading(true);
-		
-		// Always registers as customer — influencer role is assigned by admin only
-		const result = await signup(form.name, form.email, form.password, form.passwordConfirm, form.phone);
-		
+
+		// Safety timeout: if signup takes longer than 15 s, unblock the button
+		// so the user isn't permanently stuck on "Creating Account…"
+		const timeoutId = setTimeout(() => {
+			setLoading(false);
+			setServerError(
+				'The request is taking too long. Your account may have been created — try logging in, or check your email for a confirmation link.'
+			);
+		}, 15000);
+
+		let result;
+		try {
+			result = await signup(form.name, form.email, form.password, form.passwordConfirm, form.phone);
+		} catch (err) {
+			clearTimeout(timeoutId);
+			setServerError(err.message || 'Registration failed. Please try again.');
+			setLoading(false);
+			return;
+		}
+		clearTimeout(timeoutId);
+
 		if (result.success) {
 			if (result.emailConfirmRequired) {
-				// Email confirmation is enabled in Supabase — no session yet
-				setSuccessMsg('Account created! Please check your email to confirm your registration before logging in.');
+				// Email confirmation is enabled in Supabase — no session yet.
+				// Tell the user to check their inbox; the confirmation link will
+				// redirect them straight to /dashboard (emailRedirectTo is set).
+				setSuccessMsg(
+					'Account created! Please check your email and click the confirmation link to activate your account. You will be redirected to your dashboard automatically.'
+				);
 				setLoading(false);
 			} else {
-				// Session is active — hard redirect so ProtectedRoute sees the live session
-				setSuccessMsg('Account created successfully! Redirecting to dashboard...');
+				// Session is live — hard redirect so ProtectedRoute sees the session.
+				setSuccessMsg('Account created successfully! Redirecting to your dashboard…');
 				setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+				// loading stays true — page is about to navigate away
 			}
 		} else {
 			const msg = result.error || '';
@@ -444,7 +466,7 @@ export const SignupPage = () => {
 			} else if (msg.includes('Password must be at least')) {
 				setErrors({ password: msg });
 			} else {
-				setServerError(msg);
+				setServerError(msg || 'Registration failed. Please try again.');
 			}
 			setLoading(false);
 		}

@@ -5,6 +5,7 @@ import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 
 /* ─── Fallback images by category ─────────────────────────── */
 const FALLBACK = {
@@ -203,6 +204,7 @@ const SkeletonCard = () => (
 export const ShopPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { addToCart } = useCart();
+  const { currentUser } = useAuth();
 
   /* Initialise filter from URL (?category=skincare from homepage cards) */
   const initFilter = () => {
@@ -210,6 +212,18 @@ export const ShopPage = () => {
     if (cat === 'skincare' || cat === 'haircare') return cat;
     return 'all';
   };
+
+  // Detect new-user welcome flag (?welcome=1) and clear it from the URL
+  // immediately so a page refresh doesn't re-show the banner.
+  const isWelcome = searchParams.get('welcome') === '1';
+  useEffect(() => {
+    if (isWelcome) {
+      setSearchParams((prev) => {
+        prev.delete('welcome');
+        return prev;
+      }, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [filter, setFilter]         = useState(initFilter);
   const [products, setProducts]     = useState([]);
@@ -272,14 +286,32 @@ export const ShopPage = () => {
         {/* ── Page hero ── */}
         <div className="shop-hero reveal">
           <div className="shop-hero__text">
-            <p className="page-hero-label">The Collection</p>
-            <h1 className="shop-hero__h1">
-              Clinical<br /><em>formulations.</em>
-            </h1>
-            <p className="shop-hero__sub">
-              Every formulation exists for a reason. PhD-formulated,
-              100% botanical, zero synthetics.
-            </p>
+            {isWelcome ? (
+              <>
+                <p className="page-hero-label">Welcome to The Vedic Protocol</p>
+                <h1 className="shop-hero__h1">
+                  {currentUser?.name
+                    ? <>{currentUser.name.split(' ')[0]},<br /><em>begin your protocol.</em></>
+                    : <>Begin your<br /><em>protocol.</em></>
+                  }
+                </h1>
+                <p className="shop-hero__sub">
+                  Your account is ready. Explore our PhD-formulated, 100% botanical
+                  formulations and find the ritual that's right for you.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="page-hero-label">The Collection</p>
+                <h1 className="shop-hero__h1">
+                  Clinical<br /><em>formulations.</em>
+                </h1>
+                <p className="shop-hero__sub">
+                  Every formulation exists for a reason. PhD-formulated,
+                  100% botanical, zero synthetics.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Pill filter row */}

@@ -455,8 +455,8 @@ export const SignupPage = () => {
 				setLoading(false);
 			} else {
 				// Session is live — hard redirect so ProtectedRoute sees the session.
-				setSuccessMsg('Account created successfully! Redirecting to your dashboard…');
-				setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+				setSuccessMsg('Account created successfully! Redirecting to the shop…');
+				setTimeout(() => { window.location.href = '/shop?welcome=1'; }, 1500);
 				// loading stays true — page is about to navigate away
 			}
 		} else {

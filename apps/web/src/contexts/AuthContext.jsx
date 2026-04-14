@@ -128,8 +128,8 @@ export const AuthProvider = ({ children }) => {
         password,
         options: {
           data: { name, phone: phone || '' },
-          // After email confirmation the user lands directly on the dashboard.
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          // After email confirmation the user lands on the shop with a welcome banner.
+          emailRedirectTo: `${window.location.origin}/shop?welcome=1`,
         },
       });
       if (error) {

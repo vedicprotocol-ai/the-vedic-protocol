@@ -48,18 +48,7 @@ export const AuthProvider = ({ children }) => {
         // Check whether the customers row has name filled in
         const { data: existing } = await supabase
           .from('customers').select('id, name, phone').eq('id', user.id).single();
-        if (!existing) {
-          // Row doesn't exist yet (trigger not installed) — create it
-          await supabase.from('customers').upsert({
-            id: user.id,
-            email: user.email,
-            name: meta.name || '',
-            phone: meta.phone || null,
-            vedic_points: 0,
-            tier: 'Bronze',
-            role: 'customer',
-          }, { onConflict: 'id' });
-        } else if ((!existing.name || existing.name === '') && meta.name) {
+        if ((!existing?.name || existing?.name === '') && meta.name && existing) {
           // Row exists but name is empty (trigger ran before metadata was set) — patch it
           await supabase.from('customers').update({
             name: meta.name,
@@ -158,29 +147,27 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
+      // Always create the customers row immediately after signUp,
+      // regardless of whether email confirmation is required.
+      const { error: insertError } = await supabase.from('customers').insert({
+        id: data.user.id,
+        email,
+        name,
+        phone: phone || null,
+        vedic_points: 0,
+        tier: 'Bronze',
+        role: 'customer',
+      });
+      if (insertError) console.error('Profile insert error:', JSON.stringify(insertError));
+
       const emailConfirmRequired = !data.session;
 
-      if (!emailConfirmRequired) {
-        // Session is live — upsert the profile row and load it into state.
-        const { error: profileErr } = await supabase.from('customers').upsert({
-          id: data.user.id,
-          email,
-          name,
-          phone: phone || null,
-          vedic_points: 0,
-          tier: 'Bronze',
-          role: 'customer',
-        }, { onConflict: 'id' });
-        if (profileErr) {
-          console.error('Profile upsert error:', JSON.stringify(profileErr));
-        }
-        await loadProfile(data.user);
-      } else {
-        // Email confirmation is required — no session yet, so RLS would block
-        // any DB reads. The DB trigger (handle_new_user) already created the
-        // customers row from auth metadata. Just surface what we know locally
-        // so the UI has a name to show on the confirmation screen.
+      if (emailConfirmRequired) {
+        // No live session yet — surface what we know locally so the UI has a
+        // name to show on the confirmation screen.
         setCurrentUser({ ...data.user, name, phone: phone || '' });
+      } else {
+        await loadProfile(data.user);
       }
 
       // emailConfirmRequired is true when Supabase email confirmation is enabled —

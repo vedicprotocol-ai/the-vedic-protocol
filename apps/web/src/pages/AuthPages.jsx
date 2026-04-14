@@ -409,7 +409,7 @@ export const SignupPage = () => {
 		} else if (form.password !== form.passwordConfirm) {
 			e.passwordConfirm = 'Passwords do not match.';
 		}
-		if (!agreed) e.agreed = 'You must agree to the terms to continue.';
+		if (!agreed) e.agreed = 'You must agree to the Terms of Service and Privacy Policy to continue.';
 		return e;
 	};
 

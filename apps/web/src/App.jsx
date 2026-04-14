@@ -30,6 +30,8 @@ import SocialImpactPage from './pages/SocialImpactPage.jsx';
 import DoctorDiscoveryPage from './pages/DoctorDiscoveryPage.jsx';
 import AdminDoctorsPage from './pages/AdminDoctorsPage.jsx';
 import AdminInfluencersPage from './pages/AdminInfluencersPage.jsx';
+import TermsPage from './pages/TermsPage.jsx';
+import PrivacyPage from './pages/PrivacyPage.jsx';
 // import InfluencerPortalPage from './pages/InfluencerPortalPage.jsx';
 
 /* ─── Scroll reveal wired at router level so it re-runs on navigation ─── */
@@ -62,6 +64,10 @@ function App() {
             <Route path="/admin/blog" element={<ProtectedAdminRoute><AdminBlogPage /></ProtectedAdminRoute>} />
             <Route path="/social-impact" element={<SocialImpactPage />} />
             {/* <Route path="/influencer" element={<InfluencerPortalPage />} /> */}
+
+            {/* Legal */}
+            <Route path="/terms"   element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
 
             {/* Auth */}
             <Route path="/login"            element={<LoginPage />} />

@@ -220,7 +220,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.warn('signOut error (proceeding anyway):', err.message);
     }
-    window.location.href = '/';
+    window.location.href = '/login';
   };
 
   const getIsAdmin = () => {

@@ -65,7 +65,7 @@ const VedicPointsPage = () => {
             <div className="lg:col-span-1">
               <div className="bg-foreground text-background p-8 rounded-md">
                 <p className="text-xs uppercase tracking-wider mb-2 opacity-70">Current Balance</p>
-                <h2 className="text-5xl font-serif text-primary mb-6">
+                <h2 className="text-5xl font-serif mb-6">
                   {pointsData?.vedic_points || 0}
                 </h2>
                 <div className="border-t border-background/20 pt-6">
@@ -87,7 +87,7 @@ const VedicPointsPage = () => {
                           <p className="text-sm font-medium capitalize">{record.transaction_type}</p>
                           <p className="text-xs text-foreground/60">{new Date(record.created).toLocaleDateString()}</p>
                         </div>
-                        <span className={`font-medium ${record.transaction_type === 'purchase' ? 'text-primary' : 'text-foreground'}`}>
+                        <span className="font-medium text-foreground">
                           {record.transaction_type === 'purchase' ? '+' : '-'}{record.points_earned || record.points_redeemed}
                         </span>
                       </div>

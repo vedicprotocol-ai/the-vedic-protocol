@@ -63,15 +63,20 @@ export const AuthProvider = ({ children }) => {
       const user = session?.user ?? null;
       if (event === 'SIGNED_IN' && user) {
         const meta = user.user_metadata || {};
-        // Check whether the customers row has name filled in
-        const { data: existing } = await supabase
-          .from('customers').select('id, name, phone').eq('id', user.id).single();
-        if ((!existing?.name || existing?.name === '') && meta.name && existing) {
-          // Row exists but name is empty (trigger ran before metadata was set) — patch it
-          await supabase.from('customers').update({
-            name: meta.name,
-            phone: existing.phone || meta.phone || null,
-          }).eq('id', user.id);
+        // Name-patch for the signup edge case where the DB trigger created the
+        // customers row before auth metadata was available. Fire-and-forget so
+        // it does NOT block loadProfile (and therefore does not slow sign-in).
+        if (meta.name) {
+          supabase
+            .from('customers').select('id, name, phone').eq('id', user.id).single()
+            .then(({ data: existing }) => {
+              if (existing && (!existing.name || existing.name === '') && meta.name) {
+                supabase.from('customers').update({
+                  name: meta.name,
+                  phone: existing.phone || meta.phone || null,
+                }).eq('id', user.id);
+              }
+            });
         }
       }
       // Await so that the sequence counter correctly guards against concurrent calls
@@ -110,18 +115,18 @@ export const AuthProvider = ({ children }) => {
           error: 'Invalid email or password. Please try again.',
         };
       }
-      // Profile loading failure must not block a successful auth.
-      // Retry once (e.g. in case of a transient network hiccup) before falling back.
-      try {
-        await loadProfile(data.user);
-      } catch {
-        try {
-          await loadProfile(data.user);
-        } catch {
-          // Final fallback: at minimum mark the user as authenticated so navigation
-          // works.  The Header will re-fetch profile on next auth-state event.
-          setCurrentUser(data.user);
-        }
+      // Fetch the profile directly rather than through loadProfile so that the
+      // seq-counter race between this call and the concurrent onAuthStateChange
+      // handler cannot cause setCurrentUser to be silently skipped (which would
+      // result in currentUser=null at navigation time and an apparent redirect
+      // bounce back to /login).
+      const { data: profile } = await supabase
+        .from('customers').select('*').eq('id', data.user.id).single();
+      if (profile) {
+        setCurrentUser({ ...data.user, ...profile });
+      } else {
+        const meta = data.user.user_metadata || {};
+        setCurrentUser({ ...data.user, name: meta.name || '', phone: meta.phone || '' });
       }
       return { success: true, user: data.user };
     } catch (err) {

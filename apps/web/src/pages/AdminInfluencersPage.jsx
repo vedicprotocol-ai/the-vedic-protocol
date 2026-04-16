@@ -319,7 +319,7 @@ export default function AdminInfluencersPage() {
                 onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
                 disabled={!!editingId}
                 placeholder="customer@example.com"
-                className="rounded-none border-gray-300 focus-visible:ring-ring"
+                className="rounded-none border-gray-300 focus-visible:ring-gray-400"
               />
               {!editingId && <p className="text-xs text-gray-500">Customer must already have an account.</p>}
             </div>
@@ -331,7 +331,7 @@ export default function AdminInfluencersPage() {
                 value={formData.influencer_code}
                 onChange={(e) => setFormData({ ...formData, influencer_code: e.target.value.toUpperCase() })}
                 placeholder="e.g. VEDIC_SUMMER"
-                className="rounded-none border-gray-300 focus-visible:ring-ring font-mono uppercase"
+                className="rounded-none border-gray-300 focus-visible:ring-gray-400 font-mono uppercase"
               />
             </div>
 
@@ -345,7 +345,7 @@ export default function AdminInfluencersPage() {
                   max="100"
                   value={formData.discount_percentage}
                   onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
-                  className="rounded-none border-gray-300 focus-visible:ring-ring"
+                  className="rounded-none border-gray-300 focus-visible:ring-gray-400"
                 />
               </div>
               <div className="grid gap-2">
@@ -354,7 +354,7 @@ export default function AdminInfluencersPage() {
                   value={formData.status}
                   onValueChange={(val) => setFormData({ ...formData, status: val })}
                 >
-                  <SelectTrigger className="rounded-none border-gray-300 focus:ring-ring">
+                  <SelectTrigger className="rounded-none border-gray-300 focus:ring-gray-400">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-gray-200">

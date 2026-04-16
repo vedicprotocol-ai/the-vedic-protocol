@@ -378,6 +378,23 @@ select {
   font-weight: 500;
 }
 
+/* Hamburger — hidden on desktop, shown on mobile via media query */
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  padding: 6px;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.nav-hamburger:hover {
+  color: var(--ink);
+}
+
 /* Replace the old .nav-cta with a refined ghost link */
 .nav-cta {
   font-size: 11px;
@@ -1169,6 +1186,17 @@ select {
   .nav-left a,
   .nav-right a.nav-link {
     display: none;
+  }
+
+  /* Also hide the admin dropdown button in the desktop nav on smaller screens
+     — it is replicated inside the mobile overlay menu */
+  .nav-left .nav-admin-dropdown {
+    display: none;
+  }
+
+  /* Show hamburger on tablet / mobile */
+  .nav-hamburger {
+    display: flex;
   }
 
   .foot-top {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import supabase from '@/lib/supabaseClient.js';
 
 const AuthContext = createContext();
@@ -15,22 +15,38 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
+  // Monotonically-increasing counter to discard stale concurrent loadProfile calls.
+  // Without this, a slow first call can overwrite a faster second call's result.
+  const loadSeqRef = useRef(0);
+
   // Fetch the customer profile row and merge with the auth user.
   // Falls back to auth user_metadata (name/phone) when the customers row
   // doesn't exist yet so the dashboard always has a name to show.
   const loadProfile = async (authUser) => {
-    if (!authUser) { setCurrentUser(null); return; }
+    const seq = ++loadSeqRef.current;           // claim a sequence number
+    if (!authUser) {
+      if (seq === loadSeqRef.current) setCurrentUser(null);
+      return;
+    }
+
     const { data: profile, error: profileError } = await supabase
       .from('customers')
       .select('*')
       .eq('id', authUser.id)
       .single();
+
+    // Discard result if a newer loadProfile call has already started
+    if (seq !== loadSeqRef.current) return;
+
     console.log('[AuthContext] profile fetched:', profile, 'error:', profileError);
     if (profile) {
       console.log('[AuthContext] role value:', profile.role, '| isAdmin:', profile.role?.toLowerCase() === 'admin');
       setCurrentUser({ ...authUser, ...profile });
     } else {
-      // Profile row missing — use auth metadata as a temporary fallback
+      // Profile row missing — use auth metadata as a temporary fallback.
+      // NOTE: if this keeps happening, run Database/set_admin_role.sql in
+      // Supabase Dashboard → SQL Editor to ensure the customers row exists
+      // and has the correct role value.
       const meta = authUser.user_metadata || {};
       setCurrentUser({ ...authUser, name: meta.name || '', phone: meta.phone || '' });
     }
@@ -58,7 +74,8 @@ export const AuthProvider = ({ children }) => {
           }).eq('id', user.id);
         }
       }
-      loadProfile(user);
+      // Await so that the sequence counter correctly guards against concurrent calls
+      await loadProfile(user);
     });
 
     return () => subscription.unsubscribe();
@@ -93,12 +110,18 @@ export const AuthProvider = ({ children }) => {
           error: 'Invalid email or password. Please try again.',
         };
       }
-      // Profile loading failure must not block a successful auth — set the bare
-      // auth user as a fallback so isAuthenticated is true and navigate works.
+      // Profile loading failure must not block a successful auth.
+      // Retry once (e.g. in case of a transient network hiccup) before falling back.
       try {
         await loadProfile(data.user);
       } catch {
-        setCurrentUser(data.user);
+        try {
+          await loadProfile(data.user);
+        } catch {
+          // Final fallback: at minimum mark the user as authenticated so navigation
+          // works.  The Header will re-fetch profile on next auth-state event.
+          setCurrentUser(data.user);
+        }
       }
       return { success: true, user: data.user };
     } catch (err) {

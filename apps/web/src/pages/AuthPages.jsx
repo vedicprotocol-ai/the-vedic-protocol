@@ -270,7 +270,7 @@ export const LoginPage = () => {
 	const { login } = useAuth();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const from = location.state?.from?.pathname || '/dashboard';
+	const from = location.state?.from?.pathname || '/shop';
 
 	const validate = () => {
 		const e = {};
@@ -424,7 +424,6 @@ export const SignupPage = () => {
 	const [successMsg, setSuccessMsg] = useState('');
 	const [agreed, setAgreed] = useState(false);
 	const { signup } = useAuth();
-	const navigate = useNavigate();
 
 	const validate = () => {
 		const e = {};

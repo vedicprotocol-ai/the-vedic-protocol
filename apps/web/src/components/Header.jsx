@@ -148,7 +148,7 @@ const Header = ({ showDoctorsNav = false }) => {
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '4px',
-                    color: (isActive('/admin/doctors') || isActive('/admin/blog')) ? 'var(--ink)' : undefined,
+                    color: (isActive('/admin/doctors') || isActive('/admin/blog') || isActive('/admin/influencers') || isActive('/admin/products')) ? 'var(--ink)' : undefined,
                   }}
                   aria-haspopup="true"
                   aria-expanded={adminDropdownOpen}
@@ -162,7 +162,7 @@ const Header = ({ showDoctorsNav = false }) => {
                   <div style={{
                     position: 'absolute', top: '100%', left: 0,
                     background: 'var(--white)', border: '1px solid var(--line)',
-                    minWidth: '160px', zIndex: 100,
+                    minWidth: '170px', zIndex: 100,
                     boxShadow: '0 8px 24px -4px rgba(0,0,0,0.12)',
                     paddingTop: '4px', paddingBottom: '4px',
                   }}>
@@ -170,6 +170,7 @@ const Header = ({ showDoctorsNav = false }) => {
                       ['/admin/doctors',     'Manage Doctors'],
                       ['/admin/blog',        'Manage Blog'],
                       ['/admin/influencers', 'Manage Influencers'],
+                      ['/admin/products',    'Manage Products'],
                     ].map(([path, label]) => (
                       <Link
                         key={path}

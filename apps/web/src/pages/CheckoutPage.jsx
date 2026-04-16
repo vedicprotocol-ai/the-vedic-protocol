@@ -78,6 +78,20 @@ export const CheckoutPage = () => {
       };
       const { data: order, error: orderErr } = await supabase.from('orders').insert(orderData).select().single();
       if (orderErr) throw orderErr;
+
+      // Decrement stock for each purchased product
+      for (const item of cartItems) {
+        const { data: product } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', item.id)
+          .single();
+        if (product) {
+          const newStock = Math.max(0, (product.stock || 0) - item.quantity);
+          await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+        }
+      }
+
       const pts = Math.floor(total * 10);
       await supabase.from('loyalty_points').insert({ customer_id: currentUser.id, points_earned: pts, transaction_type: 'purchase', order_id: order.id });
       await supabase.from('customers').update({ vedic_points: (currentUser.vedic_points || 0) + pts }).eq('id', currentUser.id);

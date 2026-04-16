@@ -480,7 +480,7 @@ export const SignupPage = () => {
 				// Tell the user to check their inbox; the confirmation link will
 				// redirect them straight to /dashboard (emailRedirectTo is set).
 				setSuccessMsg(
-					'Account created! Please check your email and click the confirmation link to activate your account. You will be redirected to your dashboard automatically.'
+					'Account created! Please check your email and click the confirmation link to activate your account. You will be redirected to the shop automatically.'
 				);
 				setLoading(false);
 			} else {

@@ -228,26 +228,44 @@ export const ShopPage = () => {
   const [filter, setFilter]         = useState(initFilter);
   const [products, setProducts]     = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [quickView, setQuickView]   = useState(null); // { product, index }
   const [addedToast, setAddedToast] = useState(null);
 
   const fetchProducts = useCallback(async (cat) => {
     setLoading(true);
+    setFetchError(null);
     try {
-      let query = supabase.from('products').select('*').order('created', { ascending: false }).limit(60);
+      let query = supabase
+        .from('products')
+        .select('*')
+        .order('created', { ascending: false })
+        .limit(60);
       if (cat !== 'all') query = query.eq('category', cat);
       const { data, error } = await query;
       if (error) throw error;
       setProducts(data ?? []);
     } catch (e) {
       console.error('Shop fetch error:', e);
+      setFetchError(e.message || 'Failed to load products.');
       setProducts([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchProducts(filter); }, [filter]);
+  // Fetch on mount and whenever the active filter changes.
+  useEffect(() => { fetchProducts(filter); }, [filter, fetchProducts]);
+
+  // Re-fetch whenever the browser tab becomes visible again so that products
+  // added in another tab (e.g. the admin panel) appear without a manual reload.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) fetchProducts(filter);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [filter, fetchProducts]);
 
   const handleFilter = (key) => {
     setFilter(key);
@@ -338,6 +356,14 @@ export const ShopPage = () => {
           {loading ? (
             <div className="shop-grid">
               {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : fetchError ? (
+            <div className="shop-empty reveal">
+              <p className="shop-empty__title">Could not load formulations.</p>
+              <p className="shop-empty__sub">{fetchError}</p>
+              <button className="btn btn-light" onClick={() => fetchProducts(filter)}>
+                Try Again
+              </button>
             </div>
           ) : products.length === 0 ? (
             <div className="shop-empty reveal">

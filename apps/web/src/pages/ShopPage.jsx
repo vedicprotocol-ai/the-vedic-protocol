@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
@@ -207,11 +207,12 @@ export const ShopPage = () => {
   const { currentUser } = useAuth();
 
   /* Initialise filter from URL (?category=skincare from homepage cards) */
-  const initFilter = () => {
+  const initFilter = useMemo(() => {
     const cat = searchParams.get('category');
     if (cat === 'skincare' || cat === 'haircare') return cat;
     return 'all';
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Detect new-user welcome flag (?welcome=1) and clear it from the URL
   // immediately so a page refresh doesn't re-show the banner.
@@ -231,6 +232,11 @@ export const ShopPage = () => {
   const [fetchError, setFetchError] = useState(null);
   const [quickView, setQuickView]   = useState(null); // { product, index }
   const [addedToast, setAddedToast] = useState(null);
+
+  // Keep a ref to the current filter so async callbacks (realtime, focus)
+  // always use the latest value without creating stale closures.
+  const filterRef = useRef(filter);
+  useEffect(() => { filterRef.current = filter; }, [filter]);
 
   const fetchProducts = useCallback(async (cat) => {
     setLoading(true);
@@ -257,15 +263,42 @@ export const ShopPage = () => {
   // Fetch on mount and whenever the active filter changes.
   useEffect(() => { fetchProducts(filter); }, [filter, fetchProducts]);
 
-  // Re-fetch whenever the browser tab becomes visible again so that products
-  // added in another tab (e.g. the admin panel) appear without a manual reload.
+  // ── Live sync ────────────────────────────────────────────────────────────
+  // 1. Supabase Realtime: immediately reflect any INSERT / UPDATE / DELETE on
+  //    the products table — covers products added from the admin panel while
+  //    the shop page is open.
+  // 2. window "focus": re-fetch when the user returns to this browser window
+  //    or tab after working in the admin panel.
+  // 3. document "visibilitychange": re-fetch when the tab becomes visible
+  //    again (covers browser-tab switching).
+  // filterRef ensures the callbacks always use the current filter without
+  // needing to recreate the listeners on every filter change.
   useEffect(() => {
-    const handleVisibility = () => {
-      if (!document.hidden) fetchProducts(filter);
-    };
+    const refetch = () => fetchProducts(filterRef.current);
+
+    // Supabase Realtime subscription
+    const channel = supabase
+      .channel('shop-products-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        refetch,
+      )
+      .subscribe();
+
+    // Re-fetch on window focus (switching from another app or browser window)
+    window.addEventListener('focus', refetch);
+
+    // Re-fetch when this tab becomes visible again
+    const handleVisibility = () => { if (!document.hidden) refetch(); };
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [filter, fetchProducts]);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('focus', refetch);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [fetchProducts]); // fetchProducts is stable (useCallback with [])
 
   const handleFilter = (key) => {
     setFilter(key);

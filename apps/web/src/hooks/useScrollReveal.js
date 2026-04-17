@@ -37,7 +37,7 @@ const useScrollReveal = () => {
       clearTimeout(timer);
       observer.disconnect();
     };
-  }, [location.pathname]); // Re-run on every page change
+  }, [location.pathname, location.search]); // Re-run on page change or filter/query-param change
 };
 
 export default useScrollReveal;

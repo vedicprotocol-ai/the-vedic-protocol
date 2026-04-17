@@ -142,29 +142,16 @@ select {
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
-.reveal-stagger.visible>*:nth-child(1) {
+/* All children become visible; first 4 get a stagger delay */
+.reveal-stagger.visible>* {
   opacity: 1;
   transform: none;
-  transition-delay: 0.05s;
 }
 
-.reveal-stagger.visible>*:nth-child(2) {
-  opacity: 1;
-  transform: none;
-  transition-delay: 0.15s;
-}
-
-.reveal-stagger.visible>*:nth-child(3) {
-  opacity: 1;
-  transform: none;
-  transition-delay: 0.25s;
-}
-
-.reveal-stagger.visible>*:nth-child(4) {
-  opacity: 1;
-  transform: none;
-  transition-delay: 0.35s;
-}
+.reveal-stagger.visible>*:nth-child(1) { transition-delay: 0.05s; }
+.reveal-stagger.visible>*:nth-child(2) { transition-delay: 0.15s; }
+.reveal-stagger.visible>*:nth-child(3) { transition-delay: 0.25s; }
+.reveal-stagger.visible>*:nth-child(4) { transition-delay: 0.35s; }
 
 /* ── PAGE TRANSITIONS (iOS slide feel) ── */
 .page-enter {

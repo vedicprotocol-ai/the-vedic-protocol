@@ -29,11 +29,10 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('id', authUser.id)
-      .single();
+    const { data: profile, error: profileError } = await Promise.race([
+      supabase.from('customers').select('*').eq('id', authUser.id).single(),
+      new Promise(resolve => setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 6000)),
+    ]);
 
     // Discard result if a newer loadProfile call has already started
     if (seq !== loadSeqRef.current) return;
@@ -120,8 +119,11 @@ export const AuthProvider = ({ children }) => {
       // handler cannot cause setCurrentUser to be silently skipped (which would
       // result in currentUser=null at navigation time and an apparent redirect
       // bounce back to /login).
-      const { data: profile } = await supabase
-        .from('customers').select('*').eq('id', data.user.id).single();
+      // A 6-second timeout prevents the button hanging forever if the DB is slow.
+      const { data: profile } = await Promise.race([
+        supabase.from('customers').select('*').eq('id', data.user.id).single(),
+        new Promise(resolve => setTimeout(() => resolve({ data: null }), 6000)),
+      ]);
       if (profile) {
         setCurrentUser({ ...data.user, ...profile });
       } else {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
@@ -7,18 +7,10 @@ import Footer from '@/components/Footer.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 
-/* ─── Fallback images by category ─────────────────────────── */
-const FALLBACK = {
-  cleanser:    'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/bb1bbc42d8f802318cafc4cce523af40.jpg',
-  even:        'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg',
-  odd:         'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/bec1a032047b5db45bf2f3caadb360bc.jpg',
-};
-
-const getImage = (product, index) => {
+/* ─── Resolve image URL from DB only — no fallbacks ───────── */
+const getImage = (product) => {
   if (product.image_url) return getImageUrl(product.image_url);
-  const name = product.name?.toLowerCase() || '';
-  if (name.includes('cleanser') || name.includes('face wash')) return FALLBACK.cleanser;
-  return index % 2 === 0 ? FALLBACK.even : FALLBACK.odd;
+  return null;
 };
 
 /* ─── Filter config ────────────────────────────────────────── */
@@ -41,7 +33,7 @@ const useCloseOnEscape = (isOpen, onClose) => {
 /* ═══════════════════════════════════════════════════
    QUICK VIEW MODAL
 ═══════════════════════════════════════════════════ */
-const QuickView = ({ product, index, onClose, onAddToCart }) => {
+const QuickView = ({ product, onClose, onAddToCart }) => {
   const overlayRef = useRef(null);
   useCloseOnEscape(true, onClose);
 
@@ -55,7 +47,7 @@ const QuickView = ({ product, index, onClose, onAddToCart }) => {
     if (e.target === overlayRef.current) onClose();
   };
 
-  const imgSrc = getImage(product, index);
+  const imgSrc = getImage(product);
   const categoryLabel =
     product.category === 'haircare' ? 'Haircare' :
     product.category === 'skincare' ? 'Skincare' :
@@ -80,7 +72,10 @@ const QuickView = ({ product, index, onClose, onAddToCart }) => {
 
         {/* Image */}
         <div className="qv-img-wrap">
-          <img src={imgSrc} alt={product.name} className="qv-img" />
+          {imgSrc
+            ? <img src={imgSrc} alt={product.name} className="qv-img" />
+            : <div className="qv-img-placeholder" />
+          }
         </div>
 
         {/* Details */}
@@ -126,10 +121,10 @@ const QuickView = ({ product, index, onClose, onAddToCart }) => {
 };
 
 /* ═══════════════════════════════════════════════════
-   PRODUCT CARD
+   PRODUCT CARD — compact square tile
 ═══════════════════════════════════════════════════ */
-const ProductCardItem = ({ product, index, onQuickView }) => {
-  const imgSrc = getImage(product, index);
+const ProductCardItem = ({ product, onQuickView }) => {
+  const imgSrc = getImage(product);
   const categoryLabel =
     product.category === 'haircare' ? 'Haircare' :
     product.category === 'skincare' ? 'Skincare' :
@@ -137,48 +132,33 @@ const ProductCardItem = ({ product, index, onQuickView }) => {
 
   return (
     <article className="product-card" aria-label={product.name}>
-      {/* Image */}
       <div className="product-card__img-wrap">
         <Link to={`/product/${product.id}`} tabIndex={-1} aria-hidden="true">
-          <img
-            src={imgSrc}
-            alt={product.name}
-            loading="lazy"
-            className="product-card__img"
-          />
+          {imgSrc
+            ? <img src={imgSrc} alt={product.name} loading="lazy" className="product-card__img" />
+            : <div className="product-card__no-img" />
+          }
         </Link>
 
-        {/* Category badge on image */}
+        {/* Category badge */}
         <span className="product-card__cat-badge">{categoryLabel}</span>
 
-        {/* Quick view trigger */}
+        {/* Name + price overlay */}
+        <div className="product-card__overlay">
+          <Link to={`/product/${product.id}`}>
+            <h2 className="product-card__name">{product.name}</h2>
+          </Link>
+          <span className="product-card__price">₹{product.price?.toFixed(0)}</span>
+        </div>
+
+        {/* Add to Ritual on hover */}
         <button
           className="product-card__quick"
-          onClick={() => onQuickView(product, index)}
-          aria-label={`Quick view ${product.name}`}
+          onClick={() => onQuickView(product)}
+          aria-label={`Add ${product.name} to ritual`}
         >
-          Quick View
+          Add to Ritual
         </button>
-      </div>
-
-      {/* Body */}
-      <div className="product-card__body">
-        <p className="section-label">{categoryLabel}</p>
-        <Link to={`/product/${product.id}`}>
-          <h2 className="product-card__name">{product.name}</h2>
-        </Link>
-        <p className="product-card__hint">
-          {product.tagline || product.description?.slice(0, 80) || 'Clinical botanical formulation.'}
-        </p>
-        <div className="product-card__footer">
-          <span className="product-card__price">₹{product.price?.toFixed(0)}</span>
-          <button
-            className="btn btn-dark btn-sm"
-            onClick={() => onQuickView(product, index)}
-          >
-            Add to Ritual
-          </button>
-        </div>
       </div>
     </article>
   );
@@ -188,12 +168,7 @@ const ProductCardItem = ({ product, index, onQuickView }) => {
 const SkeletonCard = () => (
   <div className="product-card product-card--skeleton" aria-hidden="true">
     <div className="product-card__img-wrap">
-      <div className="skeleton-block" style={{ aspectRatio: '3/4', width: '100%' }} />
-    </div>
-    <div className="product-card__body">
-      <div className="skeleton-line skeleton-line--sub" style={{ width: '40%', marginBottom: '10px' }} />
-      <div className="skeleton-line skeleton-line--title" style={{ marginBottom: '10px' }} />
-      <div className="skeleton-line skeleton-line--sub" />
+      <div className="skeleton-block" style={{ width: '100%', height: '100%' }} />
     </div>
   </div>
 );
@@ -205,14 +180,6 @@ export const ShopPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { addToCart } = useCart();
   const { currentUser } = useAuth();
-
-  /* Initialise filter from URL (?category=skincare from homepage cards) */
-  const initFilter = useMemo(() => {
-    const cat = searchParams.get('category');
-    if (cat === 'skincare' || cat === 'haircare') return cat;
-    return 'all';
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Detect new-user welcome flag (?welcome=1) and clear it from the URL
   // immediately so a page refresh doesn't re-show the banner.
@@ -226,11 +193,12 @@ export const ShopPage = () => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [filter, setFilter]         = useState(initFilter);
+  // Always land on "all" — user navigates to a category via the filter pills
+  const [filter, setFilter]         = useState('all');
   const [products, setProducts]     = useState([]);
   const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const [quickView, setQuickView]   = useState(null); // { product, index }
+  const [quickView, setQuickView]   = useState(null); // product object
   const [addedToast, setAddedToast] = useState(null);
 
   // Keep a ref to the current filter so async callbacks (realtime, focus)
@@ -376,9 +344,6 @@ export const ShopPage = () => {
                 onClick={() => handleFilter(f.key)}
               >
                 {f.label}
-                {filter === f.key && products.length > 0 && !loading && (
-                  <span className="shop-filter-pill__count">{products.length}</span>
-                )}
               </button>
             ))}
           </div>
@@ -408,12 +373,11 @@ export const ShopPage = () => {
             </div>
           ) : (
             <div className="shop-grid reveal-stagger">
-              {products.map((p, i) => (
+              {products.map((p) => (
                 <ProductCardItem
                   key={p.id}
                   product={p}
-                  index={i}
-                  onQuickView={(prod, idx) => setQuickView({ product: prod, index: idx })}
+                  onQuickView={(prod) => setQuickView(prod)}
                 />
               ))}
             </div>
@@ -444,8 +408,7 @@ export const ShopPage = () => {
       {/* ── Quick View modal ── */}
       {quickView && (
         <QuickView
-          product={quickView.product}
-          index={quickView.index}
+          product={quickView}
           onClose={() => setQuickView(null)}
           onAddToCart={handleAddToCart}
         />

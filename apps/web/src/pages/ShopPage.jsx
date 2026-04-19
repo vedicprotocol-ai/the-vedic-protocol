@@ -209,7 +209,16 @@ export const ShopPage = () => {
   const filterRef = useRef(filter);
   useEffect(() => { filterRef.current = filter; }, [filter]);
 
+  // Monotonically-increasing fetch generation counter.
+  // Every call to fetchProducts stamps its result with the generation at call
+  // time; if a newer call has already started by the time the await resolves,
+  // the stale result is silently discarded.  This prevents two concurrent
+  // sources (e.g. realtime event + focus refetch) from racing each other and
+  // leaving loading=false + products=[] visible for 1-2 s.
+  const fetchGenRef = useRef(0);
+
   const fetchProducts = useCallback(async (cat) => {
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     setFetchError(null);
     try {
@@ -220,14 +229,16 @@ export const ShopPage = () => {
         .limit(60);
       if (cat !== 'all') query = query.eq('category', cat);
       const { data, error } = await query;
+      if (gen !== fetchGenRef.current) return; // stale — a newer fetch is in flight
       if (error) throw error;
       setProducts(data ?? []);
     } catch (e) {
+      if (gen !== fetchGenRef.current) return;
       console.error('Shop fetch error:', e);
       setFetchError(e.message || 'Failed to load products.');
       setProducts([]);
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, []);
 
@@ -305,13 +316,16 @@ export const ShopPage = () => {
     // (permanent skeleton). Applies to All Formulations, Skincare, and Haircare.
     if (key === filter) return;
 
-    // Pre-set loading=true so React 18 batches it with setFilter in the same
-    // click-event flush. This prevents the one-render window where
-    // loading=false and products=[] would briefly show "No formulations found"
-    // before the [filter] effect fires and fetchProducts sets loading=true.
-    // This fix is identical for all three filter values (all / skincare / haircare).
+    // Increment the fetch generation immediately so any in-flight fetch
+    // triggered by realtime / focus is already stale before we even set filter.
+    // Then batch all state resets together so React commits them in one pass —
+    // the component renders with loading=true (skeletons) before the new fetch
+    // effect fires, eliminating the window where products=[] + loading=false
+    // would briefly show "No formulations found".
+    fetchGenRef.current += 1;
     setFilter(key);
     setLoading(true);
+    setFetchError(null);
     setSearchParams(key === 'all' ? {} : { category: key });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

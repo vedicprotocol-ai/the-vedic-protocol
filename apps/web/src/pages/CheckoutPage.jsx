@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import supabase from '@/lib/supabaseClient.js';
+import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
 import Header from '@/components/Header.jsx';
@@ -190,8 +190,15 @@ export const CheckoutPage = () => {
               <h3 style={{ fontFamily: 'var(--serif)', fontSize: '18px', fontWeight: 400, marginBottom: '20px' }}>Order Summary</h3>
               <div style={{ maxHeight: '240px', overflowY: 'auto', marginBottom: '20px' }}>
                 {cartItems.map(item => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--ink-3)', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-                    <span style={{ flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '8px' }}>{item.quantity}× {item.name}</span>
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: 'var(--ink-3)', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                    {item.image_url && (
+                      <img
+                        src={getImageUrl(item.image_url)}
+                        alt={item.name}
+                        style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
+                      />
+                    )}
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.quantity}× {item.name}</span>
                     <span style={{ flexShrink: 0 }}>₹{(item.price * item.quantity).toFixed(0)}</span>
                   </div>
                 ))}

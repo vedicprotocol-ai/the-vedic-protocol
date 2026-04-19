@@ -8,20 +8,28 @@ import supabase from '@/lib/supabaseClient.js';
 /* ─────────────────────────────────────────────────────────────
    HELPERS
 ───────────────────────────────────────────────────────────── */
-const mapPost = (p) => ({
-  slug: p.slug,
-  type: p.type || 'journal',
-  title: p.title || '',
-  excerpt: p.excerpt || '',
-  body: p.content || '',
-  readTime: p.read_time || 5,
-  date: new Date(p.created_at || p.created).toLocaleDateString('en-GB', {
-    month: 'long',
-    year: 'numeric',
-  }),
-  image: p.image_url || '',
-  relatedCategory: p.related_category || 'skincare',
-});
+const mapPost = (p) => {
+  const rawDate = p.created_at || p.created;
+  let date = '';
+  try {
+    date = rawDate
+      ? new Date(rawDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+      : '';
+  } catch {
+    date = '';
+  }
+  return {
+    slug: p.slug,
+    type: p.type || 'journal',
+    title: p.title || '',
+    excerpt: p.excerpt || '',
+    body: p.content || '',
+    readTime: p.read_time || 5,
+    date,
+    image: p.image_url || '',
+    relatedCategory: p.related_category || 'skincare',
+  };
+};
 
 /* ─────────────────────────────────────────────────────────────
    READING PROGRESS BAR
@@ -80,6 +88,7 @@ const BlogList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'research' ? 'research' : 'journal';
   const [allPosts, setAllPosts] = useState(null); // null = loading
+  const [fetchError, setFetchError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,8 +104,12 @@ const BlogList = () => {
         if (cancelled) return;
         if (error) throw error;
         setAllPosts(items ? items.map(mapPost) : []);
-      } catch {
-        if (!cancelled) setAllPosts([]);
+      } catch (err) {
+        console.error('[BlogList] Failed to fetch blog posts:', err);
+        if (!cancelled) {
+          setFetchError(err?.message || 'Failed to load articles.');
+          setAllPosts([]);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -172,8 +185,17 @@ const BlogList = () => {
         }
       </div>
 
+      {/* Error state */}
+      {fetchError && (
+        <div className="blog-empty reveal">
+          <p style={{ color: 'var(--error, #c0392b)' }}>
+            Could not load articles — {fetchError}
+          </p>
+        </div>
+      )}
+
       {/* Empty state */}
-      {allPosts !== null && filtered.length === 0 && (
+      {!fetchError && allPosts !== null && filtered.length === 0 && (
         <div className="blog-empty reveal">
           <p>More {activeTab} articles coming soon.</p>
         </div>
@@ -266,7 +288,8 @@ const BlogPost = ({ slug }) => {
         if (!cancelled) {
           setRelated(relatedItems ? relatedItems.map(mapPost) : []);
         }
-      } catch {
+      } catch (err) {
+        console.error('[BlogPost] Failed to fetch post:', err);
         if (!cancelled) setNotFound(true);
       } finally {
         if (!cancelled) setLoading(false);

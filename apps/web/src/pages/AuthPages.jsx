@@ -271,6 +271,7 @@ export const LoginPage = () => {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const from = location.state?.from?.pathname || '/shop';
+	const fromState = location.state?.from?.state || {};
 
 	const validate = () => {
 		const e = {};
@@ -290,7 +291,7 @@ export const LoginPage = () => {
 		setLoading(true);
 		const result = await login(email, password);
 		if (result.success) {
-			navigate(from, { replace: true });
+			navigate(from, { replace: true, state: fromState });
 		} else {
 			setServerError(result.error || 'Invalid email or password. Please try again.');
 			// Show the password-reset hint for credential failures so users can
@@ -404,7 +405,11 @@ export const LoginPage = () => {
 					}}
 				>
 					No account?{' '}
-					<Link to="/signup" style={{ color: 'var(--ink)', textDecoration: 'underline' }}>
+					<Link
+						to="/signup"
+						state={location.state?.from ? { from: location.state.from } : undefined}
+						style={{ color: 'var(--ink)', textDecoration: 'underline' }}
+					>
 						Register here
 					</Link>
 				</p>
@@ -424,6 +429,10 @@ export const SignupPage = () => {
 	const [successMsg, setSuccessMsg] = useState('');
 	const [agreed, setAgreed] = useState(false);
 	const { signup } = useAuth();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const fromPath = location.state?.from?.pathname;
+	const fromState = location.state?.from?.state || {};
 
 	const validate = () => {
 		const e = {};
@@ -484,9 +493,15 @@ export const SignupPage = () => {
 				);
 				setLoading(false);
 			} else {
-				// Session is live — hard redirect so ProtectedRoute sees the session.
-				setSuccessMsg('Account created successfully! Redirecting to the shop…');
-				setTimeout(() => { window.location.href = '/shop?welcome=1'; }, 1500);
+				// Session is live — navigate to the originating page (if any) or shop.
+				setSuccessMsg(fromPath ? 'Account created! Redirecting…' : 'Account created successfully! Redirecting to the shop…');
+				setTimeout(() => {
+					if (fromPath) {
+						navigate(fromPath, { replace: true, state: fromState });
+					} else {
+						window.location.href = '/shop?welcome=1';
+					}
+				}, 1500);
 				// loading stays true — page is about to navigate away
 			}
 		} else {

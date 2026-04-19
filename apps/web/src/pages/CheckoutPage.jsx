@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════
    CHECKOUT PAGE
    ═══════════════════════════════════════════════ */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
+import AddressForm from '@/components/AddressForm.jsx';
 
 export const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -19,6 +20,61 @@ export const CheckoutPage = () => {
   const [usePoints, setUsePoints] = useState(false);
   const [error, setError] = useState('');
   const [shipping, setShipping] = useState({ name: currentUser?.name || '', address: '', city: '', state: '', zip: '' });
+
+  // Saved addresses
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [addressLoading, setAddressLoading] = useState(true);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const fetchAddresses = async () => {
+      setAddressLoading(true);
+      const { data } = await supabase
+        .from('customer_address')
+        .select('*')
+        .eq('customer_id', currentUser.id)
+        .order('created', { ascending: false });
+      setSavedAddresses(data || []);
+      if (data && data.length > 0) {
+        setSelectedAddressId(data[0].id);
+        const a = data[0];
+        setShipping(s => ({ ...s, address: a.address, city: a.city, state: a.state, zip: a.zip }));
+      } else {
+        setShowAddressForm(true);
+      }
+      setAddressLoading(false);
+    };
+    fetchAddresses();
+  }, [currentUser?.id]);
+
+  const handleSelectAddress = (addr) => {
+    setSelectedAddressId(addr.id);
+    setShipping(s => ({ ...s, address: addr.address, city: addr.city, state: addr.state, zip: addr.zip }));
+    setShowAddressForm(false);
+  };
+
+  const handleSaveNewAddress = async (formData) => {
+    setSavingAddress(true);
+    setError('');
+    try {
+      const { data, error: insertErr } = await supabase
+        .from('customer_address')
+        .insert({ customer_id: currentUser.id, ...formData })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+      setSavedAddresses(prev => [data, ...prev]);
+      handleSelectAddress(data);
+      setShowAddressForm(false);
+    } catch (e) {
+      setError(e.message || 'Failed to save address. Please try again.');
+    } finally {
+      setSavingAddress(false);
+    }
+  };
 
   const subtotal = getCartTotal();
   const shippingCost = subtotal > 500 ? 0 : 99;
@@ -67,12 +123,15 @@ export const CheckoutPage = () => {
   const handleOrder = async () => {
     setLoading(true); setError('');
     try {
+      const selectedAddr = savedAddresses.find(x => x.id === selectedAddressId);
       const orderData = {
         customer_id: currentUser.id,
         legacy_id: `VP-${Date.now()}`,
         items: cartItems.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.quantity })),
         subtotal, shipping: shippingCost, tax: 0, total, status: 'pending',
-        shipping_address: shipping,
+        shipping_address: selectedAddr
+          ? { name: shipping.name, address: selectedAddr.address, city: selectedAddr.city, state: selectedAddr.state, zip: selectedAddr.zip, country: selectedAddr.country }
+          : shipping,
         payment_method: 'credit_card',
         payment_status: 'pending',
       };
@@ -134,17 +193,83 @@ export const CheckoutPage = () => {
 
               {step === 1 && (
                 <>
-                  <h2 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, marginBottom: '28px' }}>Shipping Details</h2>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div className="field"><label className="field-label">Full Name</label><input {...iClass} value={shipping.name} onChange={e => setShipping({...shipping, name: e.target.value})} /></div>
-                    <div className="field"><label className="field-label">Street Address</label><input {...iClass} value={shipping.address} onChange={e => setShipping({...shipping, address: e.target.value})} /></div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div className="field"><label className="field-label">City</label><input {...iClass} value={shipping.city} onChange={e => setShipping({...shipping, city: e.target.value})} /></div>
-                      <div className="field"><label className="field-label">State</label><input {...iClass} value={shipping.state} onChange={e => setShipping({...shipping, state: e.target.value})} /></div>
-                    </div>
-                    <div className="field"><label className="field-label">PIN Code</label><input {...iClass} value={shipping.zip} onChange={e => setShipping({...shipping, zip: e.target.value})} /></div>
-                  </div>
-                  <button className="btn btn-dark" style={{ marginTop: '28px' }} onClick={() => setStep(2)} disabled={!shipping.name || !shipping.address || !shipping.city}>Continue to Payment</button>
+                  <h2 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, marginBottom: '28px' }}>Shipping Address</h2>
+
+                  {addressLoading ? (
+                    <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>Loading your addresses…</p>
+                  ) : (
+                    <>
+                      {/* Saved address cards */}
+                      {savedAddresses.length > 0 && !showAddressForm && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                          {savedAddresses.map(addr => (
+                            <label
+                              key={addr.id}
+                              onClick={() => handleSelectAddress(addr)}
+                              style={{
+                                display: 'flex', alignItems: 'flex-start', gap: '12px',
+                                padding: '14px 16px', border: `1px solid ${selectedAddressId === addr.id ? 'var(--gold)' : 'var(--line-dk)'}`,
+                                background: selectedAddressId === addr.id ? 'var(--white)' : 'transparent',
+                                cursor: 'pointer', fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.6,
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="savedAddress"
+                                readOnly
+                                checked={selectedAddressId === addr.id}
+                                style={{ accentColor: 'var(--gold)', marginTop: '2px', flexShrink: 0 }}
+                              />
+                              <span>
+                                <span style={{ display: 'block', fontWeight: 500, color: 'var(--ink)' }}>{addr.address}</span>
+                                {addr.city}, {addr.state} {addr.zip} — {addr.country}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add new address inline form */}
+                      {showAddressForm ? (
+                        <div style={{ background: 'var(--white)', border: '1px solid var(--line-dk)', padding: '20px', marginBottom: '20px' }}>
+                          <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', marginBottom: '16px' }}>
+                            {savedAddresses.length === 0 ? 'No saved address found. Please add one to continue.' : 'Add a new address'}
+                          </p>
+                          <AddressForm
+                            onSubmit={handleSaveNewAddress}
+                            onCancel={savedAddresses.length > 0 ? () => setShowAddressForm(false) : null}
+                            isLoading={savingAddress}
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-light"
+                          style={{ fontSize: '12px', marginBottom: '20px' }}
+                          onClick={() => setShowAddressForm(true)}
+                        >
+                          + Add New Address
+                        </button>
+                      )}
+
+                      {/* Recipient name */}
+                      {!showAddressForm && (
+                        <div className="field" style={{ marginBottom: '20px' }}>
+                          <label className="field-label">Recipient Name</label>
+                          <input {...iClass} value={shipping.name} onChange={e => setShipping({...shipping, name: e.target.value})} />
+                        </div>
+                      )}
+
+                      {!showAddressForm && (
+                        <button
+                          className="btn btn-dark"
+                          onClick={() => setStep(2)}
+                          disabled={!selectedAddressId || !shipping.name}
+                        >
+                          Continue to Payment
+                        </button>
+                      )}
+                    </>
+                  )}
                 </>
               )}
 
@@ -173,7 +298,17 @@ export const CheckoutPage = () => {
                   <div style={{ padding: '16px', background: 'var(--white)', border: '1px solid var(--line)', fontSize: '13px', color: 'var(--ink-3)', marginBottom: '24px' }}>
                     <p style={{ fontWeight: 500, color: 'var(--ink)', marginBottom: '4px' }}>Shipping to:</p>
                     <p>{shipping.name}</p>
-                    <p>{shipping.address}, {shipping.city}, {shipping.state} {shipping.zip}</p>
+                    {(() => {
+                      const a = savedAddresses.find(x => x.id === selectedAddressId);
+                      return a ? (
+                        <>
+                          <p>{a.address}</p>
+                          <p>{a.city}, {a.state} {a.zip}, {a.country}</p>
+                        </>
+                      ) : (
+                        <p>{shipping.address}, {shipping.city}, {shipping.state} {shipping.zip}</p>
+                      );
+                    })()}
                   </div>
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="btn btn-light" onClick={() => setStep(2)}>Back</button>

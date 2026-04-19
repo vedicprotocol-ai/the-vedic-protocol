@@ -749,6 +749,100 @@ export default function DoctorDiscoveryPage() {
         </div>
       )}
 
+      {/* ── Auth Gate Modal ── */}
+      {showAuthModal && authModalDoc && (
+        <div
+          className="vp-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAuthModal(false);
+              document.body.style.overflow = '';
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sign in required"
+        >
+          <div className="vp-modal" style={{ maxWidth: '440px' }}>
+            {/* Top bar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '18px 28px',
+              borderBottom: '1px solid var(--line)',
+              background: 'var(--off)',
+            }}>
+              <p style={{ fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', margin: 0 }}>
+                Account Required
+              </p>
+              <button
+                onClick={() => { setShowAuthModal(false); document.body.style.overflow = ''; }}
+                aria-label="Close"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--ink-4)', padding: '6px', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', transition: 'color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--ink)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--ink-4)'}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M1.5 1.5l13 13M14.5 1.5l-13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '40px 40px 36px' }}>
+              <h2 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: 'var(--ink)', marginBottom: '10px' }}>
+                Book with {authModalDoc.name}
+              </h2>
+              <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8, marginBottom: '32px' }}>
+                Please log in to your account to book a consultation. If you're new, create a free account in under a minute.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button
+                  className="btn btn-dark btn-full"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    document.body.style.overflow = '';
+                    navigate('/login', {
+                      state: {
+                        from: {
+                          pathname: '/doctors',
+                          state: { openBookingFor: authModalDoc.id },
+                        },
+                      },
+                    });
+                  }}
+                >
+                  Log In
+                </button>
+                <button
+                  className="btn btn-light btn-full"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    document.body.style.overflow = '';
+                    navigate('/signup', {
+                      state: {
+                        from: {
+                          pathname: '/doctors',
+                          state: { openBookingFor: authModalDoc.id },
+                        },
+                      },
+                    });
+                  }}
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Booking Modal Overlay ── */}
       {showBookingModal && bookingDoctor && (
         <div

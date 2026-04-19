@@ -133,12 +133,17 @@ const ProductCardItem = ({ product, onQuickView }) => {
   return (
     <article className="product-card" aria-label={product.name}>
       <div className="product-card__img-wrap">
-        <Link to={`/product/${product.id}`} tabIndex={-1} aria-hidden="true">
+        <button
+          className="product-card__img-btn"
+          onClick={() => onQuickView(product)}
+          aria-label={`Quick view ${product.name}`}
+          tabIndex={-1}
+        >
           {imgSrc
             ? <img src={imgSrc} alt={product.name} loading="lazy" className="product-card__img" />
             : <div className="product-card__no-img" />
           }
-        </Link>
+        </button>
 
         {/* Category badge */}
         <span className="product-card__cat-badge">{categoryLabel}</span>

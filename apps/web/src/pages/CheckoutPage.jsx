@@ -17,7 +17,6 @@ export const CheckoutPage = () => {
   const { cartItems, getCartTotal, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [usePoints, setUsePoints] = useState(false);
   const [error, setError] = useState('');
   const [shipping, setShipping] = useState({ name: currentUser?.name || '', address: '', city: '', state: '', zip: '' });
 
@@ -27,6 +26,18 @@ export const CheckoutPage = () => {
   const [addressLoading, setAddressLoading] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+
+  // Vedic Points
+  const pointsAvailable = currentUser?.vedic_points || 0;
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsToUse, setPointsToUse] = useState(0);
+
+  // Coupon
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -76,10 +87,86 @@ export const CheckoutPage = () => {
     }
   };
 
+  // Toggle vedic points
+  const handleTogglePoints = (checked) => {
+    setUsePoints(checked);
+    if (checked) {
+      setPointsToUse(pointsAvailable);
+    } else {
+      setPointsToUse(0);
+    }
+  };
+
+  const handlePointsInput = (val) => {
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 0) { setPointsToUse(0); return; }
+    if (num > pointsAvailable) { setPointsToUse(pointsAvailable); return; }
+    setPointsToUse(num);
+  };
+
+  // Apply coupon
+  const handleApplyCoupon = async () => {
+    setCouponError('');
+    setCouponSuccess('');
+    if (!couponCode.trim()) { setCouponError('Please enter a coupon code.'); return; }
+    setCouponLoading(true);
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', couponCode.trim().toUpperCase())
+        .single();
+
+      if (fetchErr || !data) { setCouponError('Invalid coupon code.'); return; }
+      if (data.status !== 'active') { setCouponError('This coupon is no longer active.'); return; }
+
+      const now = new Date();
+      if (data.valid_from && new Date(data.valid_from) > now) {
+        setCouponError('This coupon is not yet active.'); return;
+      }
+      if (data.valid_until && new Date(data.valid_until) < now) {
+        setCouponError('This coupon has expired.'); return;
+      }
+      if (data.usage_limit !== null && data.usage_count >= data.usage_limit) {
+        setCouponError('This coupon has reached its usage limit.'); return;
+      }
+
+      setAppliedCoupon(data);
+      const discLabel = data.discount_type === 'percent'
+        ? `${data.discount_value}% off`
+        : `₹${data.discount_value} off`;
+      setCouponSuccess(`Coupon applied — ${discLabel} on your order!`);
+    } catch (e) {
+      setCouponError('Failed to validate coupon. Please try again.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError('');
+    setCouponSuccess('');
+  };
+
+  // Pricing
   const subtotal = getCartTotal();
   const shippingCost = subtotal > 500 ? 0 : 99;
-  const pointsDiscount = usePoints ? Math.min(subtotal, (currentUser?.vedic_points || 0) / 100) : 0;
-  const total = subtotal + shippingCost - pointsDiscount;
+
+  // 4 vedic points = ₹1
+  const pointsDiscount = usePoints
+    ? Math.min(subtotal, Math.floor(Math.min(pointsToUse, pointsAvailable)) / 4)
+    : 0;
+
+  // Coupon applies to subtotal only (not shipping)
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.discount_type === 'percent'
+      ? Math.min(subtotal, subtotal * (Number(appliedCoupon.discount_value) / 100))
+      : Math.min(subtotal, Number(appliedCoupon.discount_value))
+    : 0;
+
+  const total = subtotal + shippingCost - pointsDiscount - couponDiscount;
 
   if (cartItems.length === 0) { navigate('/cart'); return null; }
 
@@ -133,6 +220,10 @@ export const CheckoutPage = () => {
           : shipping,
         payment_method: 'credit_card',
         payment_status: 'pending',
+        coupon_code: appliedCoupon?.code || null,
+        coupon_discount: couponDiscount || null,
+        points_used: usePoints ? Math.min(pointsToUse, pointsAvailable) : 0,
+        points_discount: pointsDiscount || null,
       };
       const { data: order, error: orderErr } = await supabase.from('orders').insert(orderData).select().single();
       if (orderErr) throw orderErr;
@@ -150,9 +241,32 @@ export const CheckoutPage = () => {
         }
       }
 
-      const pts = Math.floor(total * 10);
-      await supabase.from('loyalty_points').insert({ customer_id: currentUser.id, points_earned: pts, transaction_type: 'purchase', order_id: order.id });
-      await supabase.from('customers').update({ vedic_points: (currentUser.vedic_points || 0) + pts }).eq('id', currentUser.id);
+      // Increment coupon usage count
+      if (appliedCoupon) {
+        await supabase
+          .from('coupons')
+          .update({ usage_count: (appliedCoupon.usage_count || 0) + 1 })
+          .eq('id', appliedCoupon.id);
+      }
+
+      // Deduct used vedic points from customer
+      if (usePoints && pointsToUse > 0) {
+        const deducted = Math.min(pointsToUse, pointsAvailable);
+        const newBalance = Math.max(0, pointsAvailable - deducted);
+        await supabase.from('customers').update({ vedic_points: newBalance }).eq('id', currentUser.id);
+      }
+
+      // Points earned = (amount paid for products) / 4   [4 pts = ₹1]
+      const amountPaidForProducts = subtotal - pointsDiscount - couponDiscount;
+      const pts = Math.floor(amountPaidForProducts / 4);
+      if (pts > 0) {
+        await supabase.from('loyalty_points').insert({ customer_id: currentUser.id, points_earned: pts, transaction_type: 'purchase', order_id: order.id });
+        const updatedBalance = usePoints
+          ? Math.max(0, pointsAvailable - Math.min(pointsToUse, pointsAvailable)) + pts
+          : pointsAvailable + pts;
+        await supabase.from('customers').update({ vedic_points: updatedBalance }).eq('id', currentUser.id);
+      }
+
       clearCart();
       navigate(`/order-confirmation/${order.id}`, { state: { order, pointsEarned: pts } });
     } catch (e) {
@@ -275,15 +389,104 @@ export const CheckoutPage = () => {
               {step === 2 && (
                 <>
                   <h2 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, marginBottom: '28px' }}>Payment</h2>
+
+                  {/* Payment method */}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', border: '1px solid var(--gold)', background: 'var(--white)', cursor: 'pointer', fontSize: '13px' }}>
                     <input type="radio" checked readOnly style={{ accentColor: 'var(--gold)' }} /> Credit / Debit Card (Demo)
                   </label>
-                  {(currentUser?.vedic_points || 0) > 0 && (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', border: '1px solid var(--line)', marginTop: '12px', cursor: 'pointer', fontSize: '13px' }}>
-                      <input type="checkbox" checked={usePoints} onChange={e => setUsePoints(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
-                      Apply {currentUser.vedic_points} Vedic Points (₹{(currentUser.vedic_points / 100).toFixed(0)} value)
-                    </label>
+
+                  {/* Vedic Points */}
+                  {pointsAvailable > 0 && (
+                    <div style={{ marginTop: '20px', border: '1px solid var(--line)', background: 'var(--white)', padding: '16px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: 'var(--ink)', fontWeight: 500, marginBottom: usePoints ? '14px' : 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={usePoints}
+                          onChange={e => handleTogglePoints(e.target.checked)}
+                          style={{ accentColor: 'var(--gold)', width: '15px', height: '15px' }}
+                        />
+                        Use Vedic Points
+                        <span style={{ fontWeight: 400, color: 'var(--ink-3)', marginLeft: '4px' }}>
+                          (Available: {pointsAvailable} pts = ₹{Math.floor(pointsAvailable / 4)})
+                        </span>
+                      </label>
+
+                      {usePoints && (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ flex: 1 }}>
+                              <input
+                                type="number"
+                                min="0"
+                                max={pointsAvailable}
+                                value={pointsToUse}
+                                onChange={e => handlePointsInput(e.target.value)}
+                                style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--ink)', background: 'var(--off)', border: '1px solid var(--line-dk)', outline: 'none', width: '100%' }}
+                              />
+                            </div>
+                            <span style={{ fontSize: '12px', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>pts</span>
+                            <span style={{ fontSize: '13px', color: 'var(--gold)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                              = ₹{Math.floor(Math.min(pointsToUse, pointsAvailable) / 4)} off
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '11px', color: 'var(--ink-4)', marginTop: '6px' }}>
+                            4 Vedic Points = ₹1 · Max usable: {pointsAvailable} pts
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
+
+                  {/* Coupon Code */}
+                  <div style={{ marginTop: '20px', border: '1px solid var(--line)', background: 'var(--white)', padding: '16px' }}>
+                    <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--ink)', marginBottom: '12px' }}>Have a Coupon Code?</p>
+
+                    {appliedCoupon ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                        <div>
+                          <span style={{ fontSize: '13px', color: '#166534', fontWeight: 500 }}>{appliedCoupon.code}</span>
+                          <span style={{ fontSize: '12px', color: '#15803d', marginLeft: '8px' }}>
+                            {appliedCoupon.discount_type === 'percent'
+                              ? `${appliedCoupon.discount_value}% off`
+                              : `₹${appliedCoupon.discount_value} off`}
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleRemoveCoupon}
+                          style={{ fontSize: '11px', color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', textDecoration: 'underline' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            type="text"
+                            value={couponCode}
+                            onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); setCouponSuccess(''); }}
+                            placeholder="Enter coupon code"
+                            style={{ flex: 1, padding: '10px 14px', fontSize: '13px', color: 'var(--ink)', background: 'var(--off)', border: '1px solid var(--line-dk)', outline: 'none', letterSpacing: '0.05em' }}
+                          />
+                          <button
+                            className="btn btn-light"
+                            onClick={handleApplyCoupon}
+                            disabled={couponLoading}
+                            style={{ fontSize: '12px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                          >
+                            {couponLoading ? 'Checking…' : 'Apply'}
+                          </button>
+                        </div>
+                        {couponError && (
+                          <p style={{ fontSize: '12px', color: '#c0392b', marginTop: '8px' }}>{couponError}</p>
+                        )}
+                        {couponSuccess && (
+                          <p style={{ fontSize: '12px', color: '#15803d', marginTop: '8px' }}>{couponSuccess}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                   <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
                     <button className="btn btn-light" onClick={() => setStep(1)}>Back</button>
                     <button className="btn btn-dark" onClick={() => setStep(3)}>Review Order</button>
@@ -309,6 +512,26 @@ export const CheckoutPage = () => {
                       );
                     })()}
                   </div>
+
+                  {/* Discount summary on review step */}
+                  {(usePoints && pointsDiscount > 0) || appliedCoupon ? (
+                    <div style={{ padding: '14px 16px', background: 'var(--white)', border: '1px solid var(--line)', fontSize: '12px', color: 'var(--ink-3)', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <p style={{ fontWeight: 500, color: 'var(--ink)', marginBottom: '2px', fontSize: '13px' }}>Discounts Applied</p>
+                      {usePoints && pointsDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{Math.min(pointsToUse, pointsAvailable)} Vedic Points</span>
+                          <span style={{ color: 'var(--gold)' }}>−₹{pointsDiscount.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {appliedCoupon && couponDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Coupon: {appliedCoupon.code}</span>
+                          <span style={{ color: 'var(--gold)' }}>−₹{couponDiscount.toFixed(0)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="btn btn-light" onClick={() => setStep(2)}>Back</button>
                     <button className="btn btn-dark" onClick={handleOrder} disabled={loading}>
@@ -341,7 +564,16 @@ export const CheckoutPage = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping</span><span>{shippingCost === 0 ? 'Free' : `₹${shippingCost}`}</span></div>
                 {usePoints && pointsDiscount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--gold)' }}><span>Points Applied</span><span>−₹{pointsDiscount.toFixed(0)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--gold)' }}>
+                    <span>Vedic Points ({Math.min(pointsToUse, pointsAvailable)} pts)</span>
+                    <span>−₹{pointsDiscount.toFixed(0)}</span>
+                  </div>
+                )}
+                {appliedCoupon && couponDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--gold)' }}>
+                    <span>Coupon ({appliedCoupon.code})</span>
+                    <span>−₹{couponDiscount.toFixed(0)}</span>
+                  </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
                   <span>Total</span><span>₹{total.toFixed(0)}</span>

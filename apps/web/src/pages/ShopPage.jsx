@@ -201,6 +201,9 @@ export const ShopPage = () => {
   const [quickView, setQuickView]   = useState(null); // product object
   const [addedToast, setAddedToast] = useState(null);
 
+  // Ref to the product grid — used for the local reveal fallback below.
+  const gridRef = useRef(null);
+
   // Keep a ref to the current filter so async callbacks (realtime, focus)
   // always use the latest value without creating stale closures.
   const filterRef = useRef(filter);
@@ -230,6 +233,33 @@ export const ShopPage = () => {
 
   // Fetch on mount and whenever the active filter changes.
   useEffect(() => { fetchProducts(filter); }, [filter, fetchProducts]);
+
+  // ── Local reveal fallback ─────────────────────────────────────────────────
+  // The global MutationObserver in useScrollReveal is the primary mechanism
+  // for adding .visible to .reveal-stagger elements. However, when the user
+  // switches filter tabs, setSearchParams changes location.search at the same
+  // instant as the filter state update, causing useScrollReveal to tear down
+  // and rebuild its observers. In that narrow window the new product grid can
+  // mount before the new MutationObserver is observing — leaving it at
+  // opacity: 0 (the "blank screen" after a filter switch).
+  //
+  // This effect runs whenever loading transitions false and products exist,
+  // i.e. exactly once per successful fetch. It gives the global IO ~80 ms to
+  // fire naturally; if it hasn't, we add .visible directly.
+  useEffect(() => {
+    if (loading || products.length === 0) return;
+    const el = gridRef.current;
+    if (!el) return;
+    if (el.classList.contains('visible')) return; // already handled by global IO
+
+    const t = setTimeout(() => {
+      if (el && !el.classList.contains('visible')) {
+        el.classList.add('visible');
+      }
+    }, 80);
+
+    return () => clearTimeout(t);
+  }, [loading, products]);
 
   // ── Live sync ────────────────────────────────────────────────────────────
   // 1. Supabase Realtime: immediately reflect any INSERT / UPDATE / DELETE on
@@ -269,7 +299,19 @@ export const ShopPage = () => {
   }, [fetchProducts]); // fetchProducts is stable (useCallback with [])
 
   const handleFilter = (key) => {
+    // Guard: clicking the already-active tab is a no-op. Without this, the
+    // setLoading(true) below would fire but filter wouldn't change, so the
+    // [filter] effect would never re-run and loading would stay true forever
+    // (permanent skeleton). Applies to All Formulations, Skincare, and Haircare.
+    if (key === filter) return;
+
+    // Pre-set loading=true so React 18 batches it with setFilter in the same
+    // click-event flush. This prevents the one-render window where
+    // loading=false and products=[] would briefly show "No formulations found"
+    // before the [filter] effect fires and fetchProducts sets loading=true.
+    // This fix is identical for all three filter values (all / skincare / haircare).
     setFilter(key);
+    setLoading(true);
     setSearchParams(key === 'all' ? {} : { category: key });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -372,7 +414,7 @@ export const ShopPage = () => {
               </button>
             </div>
           ) : (
-            <div className="shop-grid reveal-stagger">
+            <div className="shop-grid reveal-stagger" ref={gridRef}>
               {products.map((p) => (
                 <ProductCardItem
                   key={p.id}

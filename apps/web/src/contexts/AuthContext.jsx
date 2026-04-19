@@ -241,8 +241,7 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(null);
     try {
       // Resolve (not reject) after 3 s so the redirect always fires even if
-      // the Supabase server is slow — signOut clears localStorage before the
-      // network call, so the local session is gone regardless of the timeout.
+      // the Supabase server is slow.
       await Promise.race([
         supabase.auth.signOut(),
         new Promise(resolve => setTimeout(resolve, 3000)),
@@ -250,6 +249,19 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.warn('signOut error (proceeding anyway):', err.message);
     }
+
+    // Wipe all browser storage so nothing is left behind.
+    try { localStorage.clear(); } catch (_) {}
+    try { sessionStorage.clear(); } catch (_) {}
+
+    // Clear all cookies for this origin.
+    try {
+      document.cookie.split(';').forEach(cookie => {
+        const name = cookie.split('=')[0].trim();
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      });
+    } catch (_) {}
+
     window.location.href = '/login';
   };
 

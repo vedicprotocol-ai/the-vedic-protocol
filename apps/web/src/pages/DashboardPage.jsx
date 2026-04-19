@@ -371,8 +371,8 @@ export const DashboardPage = () => {
                           onMouseEnter={e => { if (selectedItem?.data?.id !== o.id) e.currentTarget.style.background = 'var(--stone)'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent'; }}
                         >
-                          <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.order_number}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
+                          <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.legacy_id || o.id.slice(0, 8).toUpperCase()}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
                           <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
                           <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
                         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -163,7 +163,13 @@ export default function DoctorDiscoveryPage() {
   const closeBtn = useRef(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, currentUser } = useAuth();
+
+  // Auth-gate modal (shown when unauthenticated user tries to book)
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalDoc, setAuthModalDoc] = useState(null);
+  const autoOpenHandled = useRef(false);
 
   // Booking Modal State
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -210,6 +216,21 @@ export default function DoctorDiscoveryPage() {
     fetchDoctors();
   }, []);
 
+  // Auto-open booking modal after redirect from login/signup
+  useEffect(() => {
+    if (autoOpenHandled.current) return;
+    const openFor = location.state?.openBookingFor;
+    if (openFor && isAuthenticated && !loading && doctors.length > 0) {
+      const doc = doctors.find(d => d.id === openFor);
+      if (doc) {
+        autoOpenHandled.current = true;
+        // Clear the navigation state so a page refresh doesn't re-trigger
+        navigate('/doctors', { replace: true, state: {} });
+        openBookingModal(doc);
+      }
+    }
+  }, [location.state?.openBookingFor, isAuthenticated, loading, doctors]);
+
   const openModal = (doc) => {
     setClosing(false);
     setSelectedDoc(doc);
@@ -227,7 +248,10 @@ export default function DoctorDiscoveryPage() {
 
   const openBookingModal = (doc) => {
     if (!isAuthenticated) {
-      navigate('/login', { state: { from: { pathname: '/doctors' } } });
+      if (selectedDoc) closeModal(); // Close profile modal if open
+      setAuthModalDoc(doc);
+      setShowAuthModal(true);
+      document.body.style.overflow = 'hidden';
       return;
     }
     if (selectedDoc) closeModal(); // Close profile modal if open
@@ -454,11 +478,12 @@ export default function DoctorDiscoveryPage() {
       if (e.key === 'Escape') {
         if (selectedDoc) closeModal();
         if (showBookingModal) closeBookingModal();
+        if (showAuthModal) { setShowAuthModal(false); document.body.style.overflow = ''; }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedDoc, showBookingModal]);
+  }, [selectedDoc, showBookingModal, showAuthModal]);
 
   /* Cleanup on unmount */
   useEffect(() => () => { document.body.style.overflow = ''; }, []);

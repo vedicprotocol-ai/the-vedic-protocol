@@ -98,7 +98,7 @@ const BlogList = () => {
           .from('blog_posts')
           .select('*')
           .eq('published', true)
-          .order('created_at', { ascending: false })
+          .order('created', { ascending: false })
           .limit(100);
 
         if (cancelled) return;
@@ -282,7 +282,7 @@ const BlogPost = ({ slug }) => {
           .eq('published', true)
           .eq('type', mapped.type)
           .neq('slug', slug)
-          .order('created_at', { ascending: false })
+          .order('created', { ascending: false })
           .limit(3);
 
         if (!cancelled) {

@@ -126,7 +126,6 @@ export const CheckoutPage = () => {
       const selectedAddr = savedAddresses.find(x => x.id === selectedAddressId);
       const orderData = {
         customer_id: currentUser.id,
-        legacy_id: `VP-${Date.now()}`,
         items: cartItems.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.quantity })),
         subtotal, shipping: shippingCost, tax: 0, total, status: 'pending',
         shipping_address: selectedAddr

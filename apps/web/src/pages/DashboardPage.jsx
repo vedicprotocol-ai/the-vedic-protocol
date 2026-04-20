@@ -20,8 +20,20 @@ export const DashboardPage = () => {
   const [tab, setTab]                 = useState('orders');
   const [cancellingId, setCancellingId] = useState(null);
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
-  const [orderCancelModal, setOrderCancelModal] = useState(null); // holds order awaiting confirm
-  const [selectedItem, setSelectedItem] = useState(null); // { type: 'order'|'appointment', data: {...} }
+  const [orderCancelModal, setOrderCancelModal] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  /* ── Responsive breakpoints ── */
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth < 1024;
 
   const DB_STYLES = '@keyframes db-slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }';
 
@@ -66,12 +78,9 @@ export const DashboardPage = () => {
     setCancellingOrderId(order.id);
     setOrderCancelModal(null);
     try {
-      // 1. Mark order as cancelled
       const { error: cancelError } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
       if (cancelError) throw cancelError;
 
-      // 2. Reverse Vedic Points earned on this order
-      //    Try to find the exact loyalty record tied to this order first
       const { data: earnedRecords } = await supabase
         .from('loyalty_points')
         .select('id, points_earned, transaction_type')
@@ -79,7 +88,6 @@ export const DashboardPage = () => {
         .eq('order_id', order.id);
 
       if (earnedRecords && earnedRecords.length > 0) {
-        // Only restore points that were redeemed as part of this order
         const restorations = earnedRecords
           .filter(r => ['redeem', 'redemption'].includes(r.transaction_type))
           .map(r => ({
@@ -91,7 +99,6 @@ export const DashboardPage = () => {
         if (restorations.length > 0) await supabase.from('loyalty_points').insert(restorations);
       }
 
-      // 3. Restore stock for each cancelled item
       const items = order.items ?? [];
       for (const item of items) {
         if (!item.id) continue;
@@ -110,7 +117,6 @@ export const DashboardPage = () => {
         }
       }
 
-      // 4. Update local state
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' } : o));
       setSelectedItem(prev =>
         prev && prev.type === 'order' && prev.data.id === order.id
@@ -131,13 +137,12 @@ export const DashboardPage = () => {
     try {
       await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', apptId);
 
-      // Free up the slot
       let resolvedSlotId = slotId || null;
 
       if (!resolvedSlotId && apptData) {
         try {
           const raw = apptData.date || '';
-          const dateStr = raw.substring(0, 10); // "2026-03-29"
+          const dateStr = raw.substring(0, 10);
 
           if (dateStr.length === 10 && apptData.doctor_id && apptData.time) {
             const { data: slots } = await supabase.from('availability_slots').select('id')
@@ -203,20 +208,19 @@ export const DashboardPage = () => {
           <div
             style={{
               background: 'var(--white)', border: '1px solid var(--line)',
-              padding: '40px', maxWidth: '480px', width: '100%',
+              padding: isMobile ? '28px 20px' : '40px', maxWidth: '480px', width: '100%',
               animation: 'db-slideDown 0.28s cubic-bezier(0.22,1,0.36,1) both',
             }}
             onClick={e => e.stopPropagation()}
           >
             <style>{DB_STYLES}</style>
-            {/* Icon */}
             <div style={{ width: '48px', height: '48px', border: '1px solid var(--line)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </div>
             <p style={{ fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '8px' }}>Cancel Order</p>
-            <h3 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: 'var(--ink)', marginBottom: '12px', lineHeight: 1.3 }}>
+            <h3 style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? '18px' : '22px', fontWeight: 400, color: 'var(--ink)', marginBottom: '12px', lineHeight: 1.3 }}>
               We're sad to see you step away<br />from your ritual.
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8, marginBottom: '8px' }}>
@@ -226,7 +230,7 @@ export const DashboardPage = () => {
             <p style={{ fontSize: '12px', color: 'var(--ink-4)', marginBottom: '32px' }}>
               This action cannot be undone. If you have concerns, please reach out to our support team before proceeding.
             </p>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
               <button
                 onClick={() => handleCancelOrder(orderCancelModal)}
                 disabled={cancellingOrderId === orderCancelModal.id}
@@ -261,20 +265,29 @@ export const DashboardPage = () => {
 
       <Header />
       <main id="main">
-        <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '56px 40px 80px' }}>
+        <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: isMobile ? '28px 16px 48px' : isTablet ? '40px 24px 64px' : '56px 40px 80px' }}>
 
           {/* Header row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '48px', paddingBottom: '24px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'flex-start' : 'flex-end',
+            gap: isMobile ? '16px' : '0',
+            marginBottom: isMobile ? '32px' : '48px',
+            paddingBottom: '24px',
+            borderBottom: '1px solid var(--line)',
+          }}>
             <div>
               <p style={{ fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '8px' }}>Your Account</p>
-              <h1 style={{ fontFamily: 'var(--serif)', fontSize: '36px', fontWeight: 400, color: 'var(--ink)' }}>
+              <h1 style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? '28px' : '36px', fontWeight: 400, color: 'var(--ink)' }}>
                 {currentUser?.name || 'Welcome back'}.
               </h1>
             </div>
-            <button type="button" className="btn btn-light" onClick={logout} style={{ fontSize: '11px' }}>Log Out</button>
+            <button type="button" className="btn btn-light" onClick={logout} style={{ fontSize: '11px', alignSelf: isMobile ? 'flex-start' : 'auto' }}>Log Out</button>
           </div>
 
-          {/* ── Detail Panel — appears when a row is clicked ── */}
+          {/* ── Detail Panel ── */}
           {selectedItem && (
             <div style={{
               marginBottom: '32px',
@@ -286,7 +299,7 @@ export const DashboardPage = () => {
               <style>{DB_STYLES}</style>
 
               {/* Panel top bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 24px', background: 'var(--off)', borderBottom: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--off)', borderBottom: '1px solid var(--line)' }}>
                 <p style={{ fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', margin: 0 }}>
                   {selectedItem.type === 'order' ? 'Order Details' : 'Appointment Details'}
                 </p>
@@ -311,8 +324,15 @@ export const DashboardPage = () => {
                 const isShippedOrder    = o.status === 'shipped';
                 const canCancelOrder    = !isCancelledOrder && !isDeliveredOrder && !isShippedOrder;
                 return (
-                  <div style={{ padding: '28px 24px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
+                  <div style={{ padding: isMobile ? '20px 16px' : '28px 24px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+                      gap: isMobile ? '16px' : '24px',
+                      paddingBottom: '24px',
+                      borderBottom: '1px solid var(--line)',
+                      marginBottom: '24px',
+                    }}>
                       {[
                         ['Order Number', `#${o.legacy_id || o.id.slice(0, 8).toUpperCase()}`],
                         ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
@@ -321,7 +341,7 @@ export const DashboardPage = () => {
                       ].map(([label, value]) => (
                         <div key={label}>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>{label}</p>
-                          <p style={{ fontFamily: 'var(--serif)', fontSize: '16px', color: 'var(--ink)', textTransform: label === 'Status' ? 'capitalize' : 'none' }}>{value}</p>
+                          <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)', textTransform: label === 'Status' ? 'capitalize' : 'none' }}>{value}</p>
                         </div>
                       ))}
                     </div>
@@ -334,7 +354,7 @@ export const DashboardPage = () => {
                               <p style={{ color: 'var(--ink)', marginBottom: '2px' }}>{item.name}</p>
                               <p style={{ color: 'var(--ink-4)', fontSize: '11px' }}>Qty: {item.quantity || item.qty}</p>
                             </div>
-                            <span style={{ color: 'var(--ink)' }}>₹{((item.price) * (item.quantity || item.qty)).toFixed(0)}</span>
+                            <span style={{ color: 'var(--ink)', flexShrink: 0, marginLeft: '12px' }}>₹{((item.price) * (item.quantity || item.qty)).toFixed(0)}</span>
                           </div>
                         ))}
                       </div>
@@ -379,8 +399,15 @@ export const DashboardPage = () => {
                 const isCompleted = appt.status === 'completed';
                 const canCancel   = !isCancelled && !isCompleted;
                 return (
-                  <div style={{ padding: '28px 24px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
+                  <div style={{ padding: isMobile ? '20px 16px' : '28px 24px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+                      gap: isMobile ? '16px' : '24px',
+                      paddingBottom: '24px',
+                      borderBottom: '1px solid var(--line)',
+                      marginBottom: '24px',
+                    }}>
                       {[
                         ['Doctor', doctorName],
                         ['Date', formatApptDate(appt.date)],
@@ -389,11 +416,11 @@ export const DashboardPage = () => {
                       ].map(([label, value]) => (
                         <div key={label}>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>{label}</p>
-                          <p style={{ fontFamily: 'var(--serif)', fontSize: '16px', color: label === 'Status' ? (isCancelled ? '#4b5563' : isCompleted ? '#0369a1' : '#166534') : 'var(--ink)', textTransform: 'capitalize' }}>{value}</p>
+                          <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: label === 'Status' ? (isCancelled ? '#4b5563' : isCompleted ? '#0369a1' : '#166534') : 'var(--ink)', textTransform: 'capitalize' }}>{value}</p>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: canCancel ? '24px' : '0' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '16px' : '24px', marginBottom: canCancel ? '24px' : '0' }}>
                       {doctorSpec && (
                         <div>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Specialisation</p>
@@ -419,7 +446,7 @@ export const DashboardPage = () => {
                         </div>
                       )}
                       {appt.concerns && (
-                        <div style={{ gridColumn: '1 / -1' }}>
+                        <div style={{ gridColumn: isMobile ? '1' : '1 / -1' }}>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Concern</p>
                           <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>{appt.concerns}</p>
                         </div>
@@ -446,44 +473,109 @@ export const DashboardPage = () => {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '48px', alignItems: 'start' }}>
+          {/* ── Mobile Nav Tabs (shown only on mobile/tablet above content) ── */}
+          {isMobile && (
+            <div style={{ display: 'flex', gap: '0', marginBottom: '24px', borderBottom: '1px solid var(--line)', overflowX: 'auto' }}>
+              {[['orders','Orders'],['appointments','Appointments']].map(([t, l]) => (
+                <button
+                  key={t}
+                  onClick={() => { setTab(t); setSelectedItem(null); }}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: '11px',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: tab === t ? 'var(--ink)' : 'var(--ink-4)',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: tab === t ? '2px solid var(--ink)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    fontWeight: tab === t ? 500 : 400,
+                    whiteSpace: 'nowrap',
+                    marginBottom: '-1px',
+                    transition: 'color 0.2s, border-color 0.2s',
+                  }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
 
-            {/* Sidebar */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '88px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? '220px 1fr' : '260px 1fr', gap: isMobile ? '24px' : '48px', alignItems: 'start' }}>
+
+            {/* ── Sidebar ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '12px' : '16px', position: isMobile ? 'static' : 'sticky', top: '88px' }}>
+
               {/* Profile card */}
-              <div style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: '24px', borderRadius: '16px' }}>
-                <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '4px' }}>Logged in as</p>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: '16px', color: 'var(--ink)', marginBottom: '2px' }}>{currentUser?.name}</p>
-                <p style={{ fontSize: '12px', color: 'var(--ink-4)' }}>{currentUser?.email}</p>
-                {isInfluencer && (
-                  <span className="inline-block mt-3 px-2 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] uppercase tracking-wider rounded border border-[#D4AF37]/20">
-                    Influencer Partner
-                  </span>
+              <div style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: isMobile ? '16px' : '24px', borderRadius: '16px' }}>
+                {isMobile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', background: 'var(--ink)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontFamily: 'var(--serif)', fontSize: '14px', color: 'var(--gold)' }}>
+                        {(currentUser?.name || 'U')[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentUser?.name}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentUser?.email}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '4px' }}>Logged in as</p>
+                    <p style={{ fontFamily: 'var(--serif)', fontSize: '16px', color: 'var(--ink)', marginBottom: '2px' }}>{currentUser?.name}</p>
+                    <p style={{ fontSize: '12px', color: 'var(--ink-4)' }}>{currentUser?.email}</p>
+                    {isInfluencer && (
+                      <span className="inline-block mt-3 px-2 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] uppercase tracking-wider rounded border border-[#D4AF37]/20">
+                        Influencer Partner
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
+
               {/* Vedic Points card */}
-              <div style={{ background: 'var(--ink)', padding: '24px', borderRadius: '16px' }}>
-                <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Vedic Points</p>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: '40px', color: 'var(--gold)', lineHeight: 1, marginBottom: '8px' }}>{currentUser?.vedic_points || 0}</p>
-                <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Tier: {currentUser?.tier || 'Bronze'}</p>
-                <Link to="/vedic-points" style={{ display: 'inline-block', marginTop: '16px', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-lt)', borderBottom: '1px solid rgba(201,169,110,0.4)', paddingBottom: '2px' }}>
-                  View Details →
-                </Link>
+              <div style={{ background: 'var(--ink)', padding: isMobile ? '16px 20px' : '24px', borderRadius: '16px' }}>
+                {isMobile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Vedic Points</p>
+                      <p style={{ fontFamily: 'var(--serif)', fontSize: '28px', color: 'var(--gold)', lineHeight: 1 }}>{currentUser?.vedic_points || 0}</p>
+                      <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Tier: {currentUser?.tier || 'Bronze'}</p>
+                    </div>
+                    <Link to="/vedic-points" style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-lt)', borderBottom: '1px solid rgba(201,169,110,0.4)', paddingBottom: '2px', flexShrink: 0 }}>
+                      View →
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Vedic Points</p>
+                    <p style={{ fontFamily: 'var(--serif)', fontSize: '40px', color: 'var(--gold)', lineHeight: 1, marginBottom: '8px' }}>{currentUser?.vedic_points || 0}</p>
+                    <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Tier: {currentUser?.tier || 'Bronze'}</p>
+                    <Link to="/vedic-points" style={{ display: 'inline-block', marginTop: '16px', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-lt)', borderBottom: '1px solid rgba(201,169,110,0.4)', paddingBottom: '2px' }}>
+                      View Details →
+                    </Link>
+                  </>
+                )}
               </div>
-              {/* Nav */}
-              <nav style={{ display: 'flex', flexDirection: 'column' }} aria-label="Dashboard navigation">
-                {[['orders','Order History'],['appointments','My Appointments'],['shop','Browse Formulations']].map(([t,l]) => (
-                  t === 'shop'
-                    ? <Link key={t} to="/shop" style={{ padding: '12px 0', fontSize: '12px', color: 'var(--ink-3)', borderTop: '1px solid var(--line)', letterSpacing: '0.04em' }}>{l}</Link>
-                    : <button key={t} onClick={() => { setTab(t); setSelectedItem(null); }} style={{ padding: '12px 0', fontSize: '12px', color: tab === t ? 'var(--ink)' : 'var(--ink-3)', borderTop: '1px solid var(--line)', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontWeight: tab === t ? 500 : 400, letterSpacing: '0.04em' }}>{l}</button>
-                ))}
-              </nav>
+
+              {/* Nav — hidden on mobile (tabs shown above instead) */}
+              {!isMobile && (
+                <nav style={{ display: 'flex', flexDirection: 'column' }} aria-label="Dashboard navigation">
+                  {[['orders','Order History'],['appointments','My Appointments'],['shop','Browse Formulations']].map(([t,l]) => (
+                    t === 'shop'
+                      ? <Link key={t} to="/shop" style={{ padding: '12px 0', fontSize: '12px', color: 'var(--ink-3)', borderTop: '1px solid var(--line)', letterSpacing: '0.04em' }}>{l}</Link>
+                      : <button key={t} onClick={() => { setTab(t); setSelectedItem(null); }} style={{ padding: '12px 0', fontSize: '12px', color: tab === t ? 'var(--ink)' : 'var(--ink-3)', borderTop: '1px solid var(--line)', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontWeight: tab === t ? 500 : 400, letterSpacing: '0.04em' }}>{l}</button>
+                  ))}
+                </nav>
+              )}
 
               {/* Addresses Sidebar Module */}
-              <AddressesSidebar />
+              {!isMobile && <AddressesSidebar />}
             </div>
 
-            {/* Main content */}
+            {/* ── Main content ── */}
             <div className="min-w-0">
               {/* Influencer Dashboard Section */}
               {isInfluencer && (
@@ -498,18 +590,78 @@ export const DashboardPage = () => {
               {/* ── ORDER HISTORY TAB ── */}
               {tab === 'orders' && (
                 <>
-                  <h2 style={{ fontFamily: 'var(--serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)', marginBottom: '24px' }}>Order History</h2>
+                  {!isMobile && (
+                    <h2 style={{ fontFamily: 'var(--serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)', marginBottom: '24px' }}>Order History</h2>
+                  )}
                   {loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {[1,2,3].map(i => <div key={i} style={{ height: '72px', background: 'var(--stone)', borderRadius: '12px' }}></div>)}
                     </div>
                   ) : orders.length === 0 ? (
-                    <div style={{ padding: '64px 40px', background: 'var(--off)', border: '1px solid var(--line)', textAlign: 'center', borderRadius: '16px' }}>
+                    <div style={{ padding: isMobile ? '40px 20px' : '64px 40px', background: 'var(--off)', border: '1px solid var(--line)', textAlign: 'center', borderRadius: '16px' }}>
                       <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)', fontStyle: 'italic', marginBottom: '6px' }}>No orders yet.</p>
                       <p style={{ fontSize: '12px', color: 'var(--ink-4)', marginBottom: '24px' }}>Your order history will appear here.</p>
                       <Link to="/shop" className="btn btn-dark">Start Your Protocol</Link>
                     </div>
+                  ) : isMobile ? (
+                    /* ── MOBILE: Order cards ── */
+                    <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--line)', borderRadius: '12px', overflow: 'hidden' }}>
+                      {orders.map((o, idx) => {
+                        const isCancelledOrder = o.status === 'cancelled';
+                        const isDeliveredOrder = o.status === 'delivered';
+                        const isShippedOrder   = o.status === 'shipped';
+                        const canCancelOrder   = !isCancelledOrder && !isDeliveredOrder && !isShippedOrder;
+                        return (
+                          <div
+                            key={o.id}
+                            onClick={() => handleSelectItem('order', o)}
+                            style={{
+                              padding: '16px',
+                              borderBottom: idx < orders.length - 1 ? '1px solid var(--line)' : 'none',
+                              cursor: 'pointer',
+                              background: selectedItem?.data?.id === o.id ? 'var(--off)' : 'var(--white)',
+                              opacity: isCancelledOrder ? 0.6 : 1,
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            {/* Top row: order number + status */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                              <span style={{ fontFamily: 'var(--serif)', fontSize: '16px', color: 'var(--ink)' }}>
+                                #{o.legacy_id || o.id.slice(0, 8).toUpperCase()}
+                              </span>
+                              <span className={`status ${statuses[o.status] || 'status-pending'}`} style={{ flexShrink: 0, marginLeft: '8px' }}>
+                                {o.status}
+                              </span>
+                            </div>
+                            {/* Second row: date + total */}
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--ink-3)', marginBottom: canCancelOrder ? '12px' : '0' }}>
+                              <span>{new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                              <span style={{ color: 'var(--ink)', fontWeight: 500 }}>₹{o.total?.toFixed(0)}</span>
+                            </div>
+                            {/* Cancel button */}
+                            {canCancelOrder && (
+                              <div onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={() => setOrderCancelModal(o)}
+                                  disabled={cancellingOrderId === o.id}
+                                  style={{
+                                    background: 'none', border: '1px solid #fecaca',
+                                    padding: '6px 14px', fontSize: '11px',
+                                    color: cancellingOrderId === o.id ? 'var(--ink-4)' : '#dc2626',
+                                    cursor: cancellingOrderId === o.id ? 'not-allowed' : 'pointer',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {cancellingOrderId === o.id ? 'Cancelling…' : 'Cancel Order'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
+                    /* ── DESKTOP: Order table ── */
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
                         <span>Order</span><span>Date</span><span>Total</span><span>Status</span><span></span>
@@ -520,44 +672,44 @@ export const DashboardPage = () => {
                         const isShippedOrder   = o.status === 'shipped';
                         const canCancelOrder   = !isCancelledOrder && !isDeliveredOrder && !isShippedOrder;
                         return (
-                        <div
-                          key={o.id}
-                          onClick={() => handleSelectItem('order', o)}
-                          style={{
-                            display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px',
-                            borderBottom: '1px solid var(--line)', alignItems: 'center',
-                            cursor: 'pointer', transition: 'background 0.15s',
-                            background: selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent',
-                            margin: '0 -12px', padding: '16px 12px',
-                            opacity: isCancelledOrder ? 0.55 : 1,
-                          }}
-                          onMouseEnter={e => { if (selectedItem?.data?.id !== o.id) e.currentTarget.style.background = 'var(--stone)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent'; }}
-                        >
-                          <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.legacy_id || o.id.slice(0, 8).toUpperCase()}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
-                          <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
-                          <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
-                          <div onClick={e => e.stopPropagation()}>
-                            {canCancelOrder && (
-                              <button
-                                onClick={() => setOrderCancelModal(o)}
-                                disabled={cancellingOrderId === o.id}
-                                style={{
-                                  background: 'none', border: '1px solid var(--line-dk)',
-                                  padding: '5px 10px', fontSize: '11px',
-                                  color: cancellingOrderId === o.id ? 'var(--ink-4)' : '#dc2626',
-                                  cursor: cancellingOrderId === o.id ? 'not-allowed' : 'pointer',
-                                  transition: 'all 0.2s', whiteSpace: 'nowrap',
-                                }}
-                                onMouseEnter={e => { if (cancellingOrderId !== o.id) e.currentTarget.style.background = '#fef2f2'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
-                              >
-                                {cancellingOrderId === o.id ? '...' : 'Cancel'}
-                              </button>
-                            )}
+                          <div
+                            key={o.id}
+                            onClick={() => handleSelectItem('order', o)}
+                            style={{
+                              display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px',
+                              borderBottom: '1px solid var(--line)', alignItems: 'center',
+                              cursor: 'pointer', transition: 'background 0.15s',
+                              background: selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent',
+                              margin: '0 -12px', padding: '16px 12px',
+                              opacity: isCancelledOrder ? 0.55 : 1,
+                            }}
+                            onMouseEnter={e => { if (selectedItem?.data?.id !== o.id) e.currentTarget.style.background = 'var(--stone)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent'; }}
+                          >
+                            <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.legacy_id || o.id.slice(0, 8).toUpperCase()}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
+                            <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
+                            <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
+                            <div onClick={e => e.stopPropagation()}>
+                              {canCancelOrder && (
+                                <button
+                                  onClick={() => setOrderCancelModal(o)}
+                                  disabled={cancellingOrderId === o.id}
+                                  style={{
+                                    background: 'none', border: '1px solid var(--line-dk)',
+                                    padding: '5px 10px', fontSize: '11px',
+                                    color: cancellingOrderId === o.id ? 'var(--ink-4)' : '#dc2626',
+                                    cursor: cancellingOrderId === o.id ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                  }}
+                                  onMouseEnter={e => { if (cancellingOrderId !== o.id) e.currentTarget.style.background = '#fef2f2'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                                >
+                                  {cancellingOrderId === o.id ? '...' : 'Cancel'}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
                         );
                       })}
                     </div>
@@ -569,7 +721,8 @@ export const DashboardPage = () => {
               {tab === 'appointments' && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <h2 style={{ fontFamily: 'var(--serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)' }}>My Appointments</h2>
+                    {!isMobile && <h2 style={{ fontFamily: 'var(--serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)' }}>My Appointments</h2>}
+                    {isMobile && <p style={{ fontFamily: 'var(--serif)', fontSize: '20px', fontWeight: 400, color: 'var(--ink)' }}>My Appointments</p>}
                     <Link to="/doctors" className="btn btn-light" style={{ fontSize: '11px' }}>Book New</Link>
                   </div>
 
@@ -578,14 +731,92 @@ export const DashboardPage = () => {
                       {[1,2,3].map(i => <div key={i} style={{ height: '88px', background: 'var(--stone)', borderRadius: '12px' }}></div>)}
                     </div>
                   ) : appointments.length === 0 ? (
-                    <div style={{ padding: '64px 40px', background: 'var(--off)', border: '1px solid var(--line)', textAlign: 'center', borderRadius: '16px' }}>
+                    <div style={{ padding: isMobile ? '40px 20px' : '64px 40px', background: 'var(--off)', border: '1px solid var(--line)', textAlign: 'center', borderRadius: '16px' }}>
                       <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)', fontStyle: 'italic', marginBottom: '6px' }}>No appointments yet.</p>
                       <p style={{ fontSize: '12px', color: 'var(--ink-4)', marginBottom: '24px' }}>Book a consultation with one of our Ayurvedic doctors.</p>
                       <Link to="/doctors" className="btn btn-dark">Talk to Doctors</Link>
                     </div>
+                  ) : isMobile ? (
+                    /* ── MOBILE: Appointment cards ── */
+                    <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--line)', borderRadius: '12px', overflow: 'hidden' }}>
+                      {appointments.map((appt, idx) => {
+                        const doctorName = appt.doctor?.name || appt.doctor_name || 'Doctor';
+                        const doctorSpec = appt.doctor?.specialization || '';
+                        const isCancelled = appt.status === 'cancelled';
+                        const isCompleted = appt.status === 'completed';
+                        const canCancel   = !isCancelled && !isCompleted;
+
+                        return (
+                          <div
+                            key={appt.id}
+                            onClick={() => handleSelectItem('appointment', appt)}
+                            style={{
+                              padding: '16px',
+                              borderBottom: idx < appointments.length - 1 ? '1px solid var(--line)' : 'none',
+                              cursor: 'pointer',
+                              background: selectedItem?.data?.id === appt.id ? 'var(--off)' : 'var(--white)',
+                              opacity: isCancelled ? 0.6 : 1,
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            {/* Top row: doctor name + status badge */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                              <div style={{ minWidth: 0, flex: 1, marginRight: '8px' }}>
+                                <p style={{ fontFamily: 'var(--serif)', fontSize: '16px', color: 'var(--ink)', marginBottom: '2px' }}>
+                                  {doctorName}
+                                </p>
+                                {doctorSpec && (
+                                  <p style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--ink-4)', textTransform: 'uppercase' }}>
+                                    {doctorSpec}
+                                  </p>
+                                )}
+                              </div>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                height: '22px',
+                                padding: '0 8px',
+                                fontSize: '9px',
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                borderRadius: '2px',
+                                fontWeight: 500,
+                                flexShrink: 0,
+                                ...apptStatusStyle(appt.status),
+                              }}>
+                                {appt.status}
+                              </span>
+                            </div>
+                            {/* Date + Time row */}
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--ink-3)', marginBottom: canCancel ? '12px' : '0' }}>
+                              <span>{formatApptDate(appt.date)}</span>
+                              <span style={{ color: 'var(--ink)', fontFamily: 'var(--serif)' }}>{formatTime(appt.time)}</span>
+                            </div>
+                            {/* Cancel button */}
+                            {canCancel && (
+                              <div onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={() => handleCancelAppointment(appt.id, appt.slot_id, appt)}
+                                  disabled={cancellingId === appt.id}
+                                  style={{
+                                    background: 'none', border: '1px solid #fecaca',
+                                    padding: '6px 14px', fontSize: '11px',
+                                    color: cancellingId === appt.id ? 'var(--ink-4)' : '#dc2626',
+                                    cursor: cancellingId === appt.id ? 'not-allowed' : 'pointer',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {cancellingId === appt.id ? 'Cancelling…' : 'Cancel'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
+                    /* ── DESKTOP: Appointment table ── */
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0', overflowX: 'auto' }}>
-                      {/* Table header */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 160px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)', minWidth: '600px' }}>
                         <span>Doctor</span>
                         <span>Date</span>
@@ -617,12 +848,11 @@ export const DashboardPage = () => {
                               cursor: 'pointer',
                               transition: 'background 0.15s, opacity 0.2s',
                               background: selectedItem?.data?.id === appt.id ? 'var(--off)' : 'transparent',
-                              minWidth: '600px'
+                              minWidth: '600px',
                             }}
                             onMouseEnter={e => { if (selectedItem?.data?.id !== appt.id) e.currentTarget.style.background = 'var(--stone)'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === appt.id ? 'var(--off)' : 'transparent'; }}
                           >
-                            {/* Doctor info */}
                             <div>
                               <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)', marginBottom: '2px' }}>
                                 {doctorName}
@@ -633,18 +863,12 @@ export const DashboardPage = () => {
                                 </p>
                               )}
                             </div>
-
-                            {/* Date */}
                             <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>
                               {formatApptDate(appt.date)}
                             </span>
-
-                            {/* Time with AM/PM */}
                             <span style={{ fontSize: '13px', color: 'var(--ink)', fontFamily: 'var(--serif)' }}>
                               {formatTime(appt.time)}
                             </span>
-
-                            {/* Status badge */}
                             <span style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -656,16 +880,14 @@ export const DashboardPage = () => {
                               textTransform: 'uppercase',
                               borderRadius: '2px',
                               fontWeight: 500,
-                              ...apptStatusStyle(appt.status)
+                              ...apptStatusStyle(appt.status),
                             }}>
                               {appt.status}
                             </span>
-
-                            {/* Cancel button */}
                             <div>
                               {canCancel && (
                                 <button
-                                  onClick={() => handleCancelAppointment(appt.id, appt.slot_id, appt)}
+                                  onClick={e => { e.stopPropagation(); handleCancelAppointment(appt.id, appt.slot_id, appt); }}
                                   disabled={cancellingId === appt.id}
                                   style={{
                                     background: 'none',
@@ -691,6 +913,13 @@ export const DashboardPage = () => {
                   )}
                 </>
               )}
+
+              {/* Addresses on mobile shown at bottom of main content */}
+              {isMobile && (
+                <div style={{ marginTop: '24px' }}>
+                  <AddressesSidebar />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -711,6 +940,16 @@ export const VedicPointsPage = () => {
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
   const [currentTier, setCurrentTier] = useState('Bronze');
+
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  const isMobile = windowWidth < 768;
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser) { setLoading(false); return; }
@@ -753,13 +992,13 @@ export const VedicPointsPage = () => {
         </div>
 
         {/* How it works */}
-        <section style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '64px 40px', borderBottom: '1px solid var(--line)', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0' }} aria-labelledby="how-h2">
+        <section style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: isMobile ? '40px 20px' : '64px 40px', borderBottom: '1px solid var(--line)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: '0' }} aria-labelledby="how-h2">
           {[
             ['01. Earn','Accumulate 10 Vedic Points for every ₹1 invested in your protocol.'],
             ['02. Accumulate','Progress through Bronze, Silver, and Gold clinical tiers as you build your ritual.'],
             ['03. Redeem','Apply points at checkout for discounts on exclusive formulations.'],
           ].map(([t,d], i) => (
-            <div key={t} style={{ padding: '40px', borderLeft: i > 0 ? '1px solid var(--line)' : 'none', borderTop: i === 0 ? 'none' : 'none' }}>
+            <div key={t} style={{ padding: isMobile ? '24px 0' : '40px', borderLeft: (!isMobile && i > 0) ? '1px solid var(--line)' : 'none', borderTop: (isMobile && i > 0) ? '1px solid var(--line)' : 'none' }}>
               <h3 style={{ fontFamily: 'var(--serif)', fontSize: '20px', fontWeight: 400, color: 'var(--ink)', marginBottom: '10px' }}>{t}</h3>
               <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8 }}>{d}</p>
             </div>
@@ -767,15 +1006,15 @@ export const VedicPointsPage = () => {
         </section>
 
         {/* Tiers */}
-        <section style={{ background: 'var(--off)', borderBottom: '1px solid var(--line)', padding: '64px 40px' }} aria-labelledby="tiers-h2">
+        <section style={{ background: 'var(--off)', borderBottom: '1px solid var(--line)', padding: isMobile ? '40px 20px' : '64px 40px' }} aria-labelledby="tiers-h2">
           <div style={{ maxWidth: 'var(--max)', margin: '0 auto' }}>
             <p className="section-label">Clinical Tiers</p>
             <h2 className="section-h2" style={{ marginBottom: '40px' }}>Your tier<br /><em>unlocks more.</em></h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: '20px' }}>
               {tiers.map((t, i) => {
                 const isCurrent = isAuthenticated ? currentTier === t.name : i === 0;
                 return (
-                  <div key={t.name} style={{ padding: '32px', background: isCurrent ? 'var(--ink)' : 'var(--white)', border: `1px solid ${isCurrent ? 'var(--ink)' : 'var(--line)'}` }}>
+                  <div key={t.name} style={{ padding: isMobile ? '24px' : '32px', background: isCurrent ? 'var(--ink)' : 'var(--white)', border: `1px solid ${isCurrent ? 'var(--ink)' : 'var(--line)'}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                       <h3 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: isCurrent ? 'var(--gold)' : 'var(--ink)' }}>{t.name}</h3>
                       {isCurrent && <span style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(201,169,110,0.4)', padding: '4px 8px' }}>Current</span>}
@@ -790,12 +1029,12 @@ export const VedicPointsPage = () => {
         </section>
 
         {/* User balance + history or CTA */}
-        <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '64px 40px' }}>
+        <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: isMobile ? '40px 20px' : '64px 40px' }}>
           {isAuthenticated ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '40px', alignItems: 'start' }}>
-              <div style={{ background: 'var(--ink)', padding: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '280px 1fr', gap: isMobile ? '24px' : '40px', alignItems: 'start' }}>
+              <div style={{ background: 'var(--ink)', padding: isMobile ? '24px' : '32px' }}>
                 <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '12px' }}>Current Balance</p>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: '56px', color: 'var(--gold)', lineHeight: 1, marginBottom: '16px' }}>{balance}</p>
+                <p style={{ fontFamily: 'var(--serif)', fontSize: isMobile ? '40px' : '56px', color: 'var(--gold)', lineHeight: 1, marginBottom: '16px' }}>{balance}</p>
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                   <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>Clinical Tier</p>
                   <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--white)' }}>{currentTier}</p>
@@ -830,10 +1069,10 @@ export const VedicPointsPage = () => {
               </div>
             </div>
           ) : (
-            <div style={{ padding: '72px 40px', background: 'var(--off)', border: '1px solid var(--line)', textAlign: 'center' }}>
+            <div style={{ padding: isMobile ? '48px 24px' : '72px 40px', background: 'var(--off)', border: '1px solid var(--line)', textAlign: 'center' }}>
               <h2 style={{ fontFamily: 'var(--serif)', fontSize: '28px', fontWeight: 400, color: 'var(--ink)', marginBottom: '8px' }}>Join the Protocol.</h2>
               <p style={{ fontSize: '13px', color: 'var(--ink-3)', marginBottom: '28px' }}>Create an account to start earning Vedic Points with every purchase.</p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <Link to="/signup" className="btn btn-dark">Create Account</Link>
                 <Link to="/login" className="btn btn-light">Log In</Link>
               </div>

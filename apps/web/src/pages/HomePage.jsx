@@ -80,7 +80,7 @@ const HomePage = () => (
     </Helmet>
 
     <a className="skip" href="#main">Skip to content</a>
-    <Header showDoctorsNav={true} />
+    <Header />
 
     <main id="main">
 

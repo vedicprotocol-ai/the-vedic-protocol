@@ -451,6 +451,24 @@ select {
   stroke: var(--gold);
 }
 
+/* Cart count badge in bottom nav */
+.bottom-nav-cart-count {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 14px;
+  height: 14px;
+  background: var(--gold);
+  border-radius: 50%;
+  font-size: 8px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  pointer-events: none;
+}
+
 /* ── BUTTONS ── */
 .btn {
   display: inline-flex;
@@ -1209,6 +1227,32 @@ select {
     display: flex;
   }
 
+  /* Reduce spacing so logo + icons + hamburger all fit without horizontal scroll */
+  .nav-inner {
+    gap: 8px;
+    padding: 0 16px;
+  }
+
+  .nav-right {
+    gap: 4px;
+    flex: 0 0 auto;
+  }
+
+  .nav-left {
+    flex: 0 0 auto;
+  }
+
+  /* Shrink logo text on tablet/mobile to save horizontal space */
+  .nav-logo-name {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+  }
+
+  /* Hide search from top nav — Shop is in the bottom nav */
+  .nav-icon-search {
+    display: none;
+  }
+
   .foot-top {
     grid-template-columns: 1fr 1fr;
     gap: 32px;
@@ -1223,6 +1267,12 @@ select {
   }
 
   .nav-cta {
+    display: none;
+  }
+
+  /* Hide account + cart icons from top nav — both are in the bottom nav */
+  .nav-icon-account,
+  .nav-icon-cart {
     display: none;
   }
 

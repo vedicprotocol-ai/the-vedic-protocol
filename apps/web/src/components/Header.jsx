@@ -62,7 +62,7 @@ const IconAccount = () => (
 );
 
 /* ─── Component ─────────────────────────────────────────────── */
-const Header = ({ showDoctorsNav = false }) => {
+const Header = () => {
   const { isAuthenticated, isAdmin } = useAuth();
   const { cartItems } = useCart();
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -215,23 +215,23 @@ const Header = ({ showDoctorsNav = false }) => {
             </Link>
 
             {/* Search */}
-            <Link to="/shop" className="nav-icon" aria-label="Search formulations">
+            <Link to="/shop" className="nav-icon nav-icon-search" aria-label="Search formulations">
               <IconSearch />
             </Link>
 
             {/* Account */}
             {isAuthenticated ? (
-              <Link to="/dashboard" className="nav-icon" aria-label="Your account">
+              <Link to="/dashboard" className="nav-icon nav-icon-account" aria-label="Your account">
                 <IconUser />
               </Link>
             ) : (
-              <Link to="/login" className="nav-icon" aria-label="Log in">
+              <Link to="/login" className="nav-icon nav-icon-account" aria-label="Log in">
                 <IconUser />
               </Link>
             )}
 
             {/* Cart */}
-            <Link to="/cart" className="nav-icon" aria-label={`Bag — ${cartCount} item${cartCount !== 1 ? 's' : ''}`} style={{ position: 'relative' }}>
+            <Link to="/cart" className="nav-icon nav-icon-cart" aria-label={`Bag — ${cartCount} item${cartCount !== 1 ? 's' : ''}`} style={{ position: 'relative' }}>
               <IconBag />
               {cartCount > 0 && (
                 <span className="nav-cart-count" aria-hidden="true">{cartCount}</span>
@@ -363,27 +363,29 @@ const Header = ({ showDoctorsNav = false }) => {
           <span>Shop</span>
         </Link>
 
-        {showDoctorsNav ? (
-          <Link
-            to="/doctors"
-            className={`bottom-nav-item${isActive('/doctors') ? ' active' : ''}`}
-            aria-label="Talk to Doctors"
-            aria-current={isActive('/doctors') ? 'page' : undefined}
-          >
-            <IconDoctors />
-            <span>Doctors</span>
-          </Link>
-        ) : (
-          <Link
-            to="/science"
-            className={`bottom-nav-item${isActive('/science') ? ' active' : ''}`}
-            aria-label="Science"
-            aria-current={isActive('/science') ? 'page' : undefined}
-          >
-            <IconScience />
-            <span>Science</span>
-          </Link>
-        )}
+        <Link
+          to="/cart"
+          className={`bottom-nav-item${isActive('/cart') ? ' active' : ''}`}
+          aria-label={`Cart — ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
+          aria-current={isActive('/cart') ? 'page' : undefined}
+          style={{ position: 'relative' }}
+        >
+          <IconBag />
+          {cartCount > 0 && (
+            <span className="bottom-nav-cart-count" aria-hidden="true">{cartCount}</span>
+          )}
+          <span>Cart</span>
+        </Link>
+
+        <Link
+          to="/doctors"
+          className={`bottom-nav-item${isActive('/doctors') ? ' active' : ''}`}
+          aria-label="Talk to Doctors"
+          aria-current={isActive('/doctors') ? 'page' : undefined}
+        >
+          <IconDoctors />
+          <span>Doctors</span>
+        </Link>
 
         <Link
           to="/blog"

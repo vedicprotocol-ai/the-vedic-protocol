@@ -2,7 +2,7 @@
    DASHBOARD PAGE
    ═══════════════════════════════════════════════ */
 import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import supabase from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
@@ -13,6 +13,7 @@ import AddressesSidebar from '@/components/AddressesSidebar.jsx';
 
 export const DashboardPage = () => {
   const { currentUser, logout, isInfluencer } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders]           = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -48,14 +49,14 @@ export const DashboardPage = () => {
   useEffect(() => {
     if (!currentUser) return;
     supabase.from('orders').select('*')
-      .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(50)
+      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(50)
       .then(({ data }) => { setOrders(data ?? []); setLoading(false); }).catch(() => setLoading(false));
   }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
     supabase.from('appointments').select('*, doctor:doctor_id(*)')
-      .eq('customer_id', currentUser.id).order('created_at', { ascending: false }).limit(50)
+      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(50)
       .then(({ data }) => { setAppointments(data ?? []); setApptLoading(false); })
       .catch(() => setApptLoading(false));
   }, [currentUser]);
@@ -71,13 +72,13 @@ export const DashboardPage = () => {
 
       if (!resolvedSlotId && apptData) {
         try {
-          const raw = apptData.appointment_date || '';
+          const raw = apptData.date || '';
           const dateStr = raw.substring(0, 10); // "2026-03-29"
 
-          if (dateStr.length === 10 && apptData.doctor_id && apptData.appointment_time) {
+          if (dateStr.length === 10 && apptData.doctor_id && apptData.time) {
             const { data: slots } = await supabase.from('availability_slots').select('id')
               .eq('doctor_id', apptData.doctor_id)
-              .eq('time_slot', apptData.appointment_time)
+              .eq('time', apptData.time)
               .gte('date', dateStr + 'T00:00:00')
               .lt('date', dateStr + 'T23:59:59')
               .limit(1);
@@ -89,7 +90,7 @@ export const DashboardPage = () => {
       }
 
       if (resolvedSlotId) {
-        await supabase.from('availability_slots').update({ is_available: true }).eq('id', resolvedSlotId);
+        await supabase.from('availability_slots').update({ is_booked: false }).eq('id', resolvedSlotId);
       }
 
       setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, status: 'cancelled' } : a));
@@ -135,7 +136,7 @@ export const DashboardPage = () => {
                 {currentUser?.name || 'Welcome back'}.
               </h1>
             </div>
-            <button className="btn btn-light" onClick={logout} style={{ fontSize: '11px' }}>Log Out</button>
+            <button type="button" className="btn btn-light" onClick={logout} style={{ fontSize: '11px' }}>Log Out</button>
           </div>
 
           {/* ── Detail Panel — appears when a row is clicked ── */}
@@ -174,8 +175,8 @@ export const DashboardPage = () => {
                   <div style={{ padding: '28px 24px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
                       {[
-                        ['Order Number', `#${o.order_number}`],
-                        ['Date', new Date(o.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
+                        ['Order Number', `#${o.legacy_id || o.id.slice(0, 8).toUpperCase()}`],
+                        ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
                         ['Total', `₹${o.total?.toFixed(0)}`],
                         ['Status', o.status],
                       ].map(([label, value]) => (
@@ -203,7 +204,7 @@ export const DashboardPage = () => {
                       <div style={{ marginTop: '20px' }}>
                         <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Shipping Address</p>
                         <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>
-                          {(() => { try { const a = JSON.parse(o.shipping_address); return `${a.address}, ${a.city}, ${a.state} ${a.zip}`; } catch { return o.shipping_address; } })()}
+                          {(() => { const a = o.shipping_address; if (!a) return 'N/A'; if (typeof a === 'object') return `${a.address || ''}, ${a.city || ''}, ${a.state || ''} ${a.zip || ''}`; try { const p = JSON.parse(a); return `${p.address}, ${p.city}, ${p.state} ${p.zip}`; } catch { return String(a); } })()}
                         </p>
                       </div>
                     )}
@@ -216,7 +217,7 @@ export const DashboardPage = () => {
                 const appt = selectedItem.data;
                 const doctorName = appt.doctor?.name || 'Doctor';
                 const doctorSpec = appt.doctor?.specialization || '';
-                const doctorQual = appt.doctor?.qualification || '';
+                const doctorQual = appt.doctor?.title || '';
                 const isCancelled = appt.status === 'cancelled';
                 const isCompleted = appt.status === 'completed';
                 const canCancel   = !isCancelled && !isCompleted;
@@ -225,8 +226,8 @@ export const DashboardPage = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
                       {[
                         ['Doctor', doctorName],
-                        ['Date', formatApptDate(appt.appointment_date)],
-                        ['Time', formatTime(appt.appointment_time)],
+                        ['Date', formatApptDate(appt.date)],
+                        ['Time', formatTime(appt.time)],
                         ['Status', appt.status],
                       ].map(([label, value]) => (
                         <div key={label}>
@@ -248,22 +249,22 @@ export const DashboardPage = () => {
                           <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{doctorQual}</p>
                         </div>
                       )}
-                      {appt.patient_name && (
+                      {appt.name && (
                         <div>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Patient Name</p>
-                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.patient_name}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.name}</p>
                         </div>
                       )}
-                      {appt.phone_number && (
+                      {appt.phone && (
                         <div>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Phone</p>
-                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.phone_number}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--ink-3)' }}>{appt.phone}</p>
                         </div>
                       )}
-                      {appt.problem_brief && (
+                      {appt.concerns && (
                         <div style={{ gridColumn: '1 / -1' }}>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>Concern</p>
-                          <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>{appt.problem_brief}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>{appt.concerns}</p>
                         </div>
                       )}
                     </div>
@@ -370,8 +371,8 @@ export const DashboardPage = () => {
                           onMouseEnter={e => { if (selectedItem?.data?.id !== o.id) e.currentTarget.style.background = 'var(--stone)'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent'; }}
                         >
-                          <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.order_number}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
+                          <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.legacy_id || o.id.slice(0, 8).toUpperCase()}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
                           <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
                           <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
                         </div>
@@ -452,12 +453,12 @@ export const DashboardPage = () => {
 
                             {/* Date */}
                             <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>
-                              {formatApptDate(appt.appointment_date)}
+                              {formatApptDate(appt.date)}
                             </span>
 
                             {/* Time with AM/PM */}
                             <span style={{ fontSize: '13px', color: 'var(--ink)', fontFamily: 'var(--serif)' }}>
-                              {formatTime(appt.appointment_time)}
+                              {formatTime(appt.time)}
                             </span>
 
                             {/* Status badge */}
@@ -526,9 +527,9 @@ export const VedicPointsPage = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser) { setLoading(false); return; }
-    pb.collection('loyalty_points').getList(1, 20, {
-      filter: `customer_id = "${currentUser.id}"`, sort: '-created', $autoCancel: false
-    }).then(r => { setHistory(r.items); setLoading(false); }).catch(() => setLoading(false));
+    supabase.from('loyalty_points').select('*')
+      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(20)
+      .then(({ data }) => { setHistory(data ?? []); setLoading(false); }).catch(() => setLoading(false));
   }, [isAuthenticated, currentUser]);
 
   const tiers = [
@@ -662,8 +663,10 @@ export const OrderConfirmationPage = () => {
     const stateOrder = location?.order;
     if (stateOrder) { setOrder(stateOrder); setPoints(location?.pointsEarned || 0); setLoading(false); return; }
     if (id) {
-      pb.collection('orders').getOne(id, { $autoCancel: false })
-        .then(o => { setOrder(o); setPoints(Math.floor(o.total * 10)); })
+      supabase.from('orders').select('*').eq('id', id).single()
+        .then(({ data: o, error }) => {
+          if (!error && o) { setOrder(o); setPoints(Math.floor(o.total * 10)); }
+        })
         .catch(console.error)
         .finally(() => setLoading(false));
     } else { setLoading(false); }
@@ -686,7 +689,7 @@ export const OrderConfirmationPage = () => {
   return (
     <>
       <Helmet>
-        <title>Order Confirmed — {order.order_number} | The Vedic Protocol</title>
+        <title>Order Confirmed — {order.legacy_id || order.id?.slice(0, 8).toUpperCase()} | The Vedic Protocol</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <Header />
@@ -709,7 +712,7 @@ export const OrderConfirmationPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '28px', paddingBottom: '28px', borderBottom: '1px solid var(--line)' }}>
               <div>
                 <p style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '8px' }}>Order Number</p>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)' }}>{order.order_number}</p>
+                <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)' }}>{order.legacy_id || order.id?.slice(0, 8).toUpperCase()}</p>
               </div>
               <div>
                 <p style={{ fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '8px' }}>Estimated Delivery</p>

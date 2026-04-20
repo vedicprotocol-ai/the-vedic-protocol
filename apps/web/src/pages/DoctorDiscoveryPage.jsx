@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -163,7 +163,13 @@ export default function DoctorDiscoveryPage() {
   const closeBtn = useRef(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, currentUser } = useAuth();
+
+  // Auth-gate modal (shown when unauthenticated user tries to book)
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalDoc, setAuthModalDoc] = useState(null);
+  const autoOpenHandled = useRef(false);
 
   // Booking Modal State
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -210,6 +216,21 @@ export default function DoctorDiscoveryPage() {
     fetchDoctors();
   }, []);
 
+  // Auto-open booking modal after redirect from login/signup
+  useEffect(() => {
+    if (autoOpenHandled.current) return;
+    const openFor = location.state?.openBookingFor;
+    if (openFor && isAuthenticated && !loading && doctors.length > 0) {
+      const doc = doctors.find(d => d.id === openFor);
+      if (doc) {
+        autoOpenHandled.current = true;
+        // Clear the navigation state so a page refresh doesn't re-trigger
+        navigate('/doctors', { replace: true, state: {} });
+        openBookingModal(doc);
+      }
+    }
+  }, [location.state?.openBookingFor, isAuthenticated, loading, doctors]);
+
   const openModal = (doc) => {
     setClosing(false);
     setSelectedDoc(doc);
@@ -227,7 +248,10 @@ export default function DoctorDiscoveryPage() {
 
   const openBookingModal = (doc) => {
     if (!isAuthenticated) {
-      navigate('/login', { state: { from: { pathname: '/doctors' } } });
+      if (selectedDoc) closeModal(); // Close profile modal if open
+      setAuthModalDoc(doc);
+      setShowAuthModal(true);
+      document.body.style.overflow = 'hidden';
       return;
     }
     if (selectedDoc) closeModal(); // Close profile modal if open
@@ -274,7 +298,8 @@ export default function DoctorDiscoveryPage() {
         .eq('doctor_id', doctorId)
         .gte('date', dateStr + 'T00:00:00')
         .lt('date', nextDayStr + 'T00:00:00')
-        .order('time_slot');
+        .eq('is_booked', false)
+        .order('time');
       setAvailableSlots(res ?? []);
     } catch (err) {
       console.error('Error fetching slots:', err);
@@ -345,18 +370,18 @@ export default function DoctorDiscoveryPage() {
       await supabase.from('appointments').insert({
         doctor_id: bookingDoctor.id,
         customer_id: currentUser.id,
-        patient_name: formData.patient_name,
-        phone_number: formData.phone_number,
+        name: formData.patient_name,
+        phone: formData.phone_number,
         email: formData.email,
-        problem_brief: formData.problem_brief,
-        appointment_date: selectedDate + " 12:00:00.000Z",
-        appointment_time: selectedSlot.time_slot,
+        concerns: formData.problem_brief,
+        date: selectedDate + " 12:00:00.000Z",
+        time: selectedSlot.time,
         slot_id: selectedSlot.id,
         status: 'booked'
       }, { $autoCancel: false });
 
       // 2. Mark slot as booked
-      await supabase.from('availability_slots').update({ is_available: false }).eq('id', selectedSlot.id);
+      await supabase.from('availability_slots').update({ is_booked: true }).eq('id', selectedSlot.id);
 
       // 3. Send confirmation email via Brevo
       const BREVO_KEY = import.meta.env.VITE_BREVO_KEY;
@@ -394,7 +419,7 @@ export default function DoctorDiscoveryPage() {
                         </tr>
                         <tr>
                           <td style="padding:8px 0;color:#9a9690;border-bottom:1px solid #e8e6e1;">Time</td>
-                          <td style="padding:8px 0;color:#1a1814;border-bottom:1px solid #e8e6e1;">${selectedSlot.time_slot}</td>
+                          <td style="padding:8px 0;color:#1a1814;border-bottom:1px solid #e8e6e1;">${selectedSlot.time}</td>
                         </tr>
                         <tr>
                           <td style="padding:8px 0;color:#9a9690;">Your concern</td>
@@ -453,11 +478,12 @@ export default function DoctorDiscoveryPage() {
       if (e.key === 'Escape') {
         if (selectedDoc) closeModal();
         if (showBookingModal) closeBookingModal();
+        if (showAuthModal) { setShowAuthModal(false); document.body.style.overflow = ''; }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedDoc, showBookingModal]);
+  }, [selectedDoc, showBookingModal, showAuthModal]);
 
   /* Cleanup on unmount */
   useEffect(() => () => { document.body.style.overflow = ''; }, []);
@@ -723,6 +749,100 @@ export default function DoctorDiscoveryPage() {
         </div>
       )}
 
+      {/* ── Auth Gate Modal ── */}
+      {showAuthModal && authModalDoc && (
+        <div
+          className="vp-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAuthModal(false);
+              document.body.style.overflow = '';
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sign in required"
+        >
+          <div className="vp-modal" style={{ maxWidth: '440px' }}>
+            {/* Top bar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '18px 28px',
+              borderBottom: '1px solid var(--line)',
+              background: 'var(--off)',
+            }}>
+              <p style={{ fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', margin: 0 }}>
+                Account Required
+              </p>
+              <button
+                onClick={() => { setShowAuthModal(false); document.body.style.overflow = ''; }}
+                aria-label="Close"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--ink-4)', padding: '6px', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', transition: 'color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--ink)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--ink-4)'}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M1.5 1.5l13 13M14.5 1.5l-13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '40px 40px 36px' }}>
+              <h2 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: 'var(--ink)', marginBottom: '10px' }}>
+                Book with {authModalDoc.name}
+              </h2>
+              <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8, marginBottom: '32px' }}>
+                Please log in to your account to book a consultation. If you're new, create a free account in under a minute.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button
+                  className="btn btn-dark btn-full"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    document.body.style.overflow = '';
+                    navigate('/login', {
+                      state: {
+                        from: {
+                          pathname: '/doctors',
+                          state: { openBookingFor: authModalDoc.id },
+                        },
+                      },
+                    });
+                  }}
+                >
+                  Log In
+                </button>
+                <button
+                  className="btn btn-light btn-full"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    document.body.style.overflow = '';
+                    navigate('/signup', {
+                      state: {
+                        from: {
+                          pathname: '/doctors',
+                          state: { openBookingFor: authModalDoc.id },
+                        },
+                      },
+                    });
+                  }}
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Booking Modal Overlay ── */}
       {showBookingModal && bookingDoctor && (
         <div
@@ -776,7 +896,7 @@ export default function DoctorDiscoveryPage() {
                 </div>
                 <h2 style={{ fontFamily: 'var(--serif)', fontSize: '28px', color: 'var(--ink)', marginBottom: '12px' }}>Booking Confirmed</h2>
                 <p style={{ color: 'var(--ink-3)', marginBottom: '32px' }}>
-                  Your consultation with {bookingDoctor.name} is scheduled for {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''} at {selectedSlot?.time_slot}.
+                  Your consultation with {bookingDoctor.name} is scheduled for {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''} at {selectedSlot?.time}.
                 </p>
                 <p style={{ fontSize: '12px', color: 'var(--ink-4)' }}>Closing automatically...</p>
               </div>
@@ -921,10 +1041,10 @@ export default function DoctorDiscoveryPage() {
                             key={slot.id}
                             type="button"
                             className={`time-btn ${selectedSlot?.id === slot.id ? 'active' : ''}`}
-                            disabled={!slot.is_available || bookingSubmitting}
+                            disabled={slot.is_booked || bookingSubmitting}
                             onClick={() => { setSelectedSlot(slot); setSlotError(''); }}
                           >
-                            {slot.time_slot}
+                            {slot.time}
                           </button>
                         ))}
                       </div>
@@ -1032,7 +1152,7 @@ export default function DoctorDiscoveryPage() {
                         <span>Schedule</span>
                         <span style={{ color: 'var(--ink)' }}>
                           {selectedSlot && selectedDate
-                            ? `${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${selectedSlot.time_slot}`
+                            ? `${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${selectedSlot.time}`
                             : 'Not selected'}
                         </span>
                       </div>

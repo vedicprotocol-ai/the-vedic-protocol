@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"e:/TheVedicProtocol/VedicProtocol_GitHub\" -type f \\\\\\( -name \"*.js\" -o -name \"*.jsx\" -o -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.json\" \\\\\\) -exec grep -l \"pocketbase\\\\|PocketBase\" {} \\\\;)",
+      "Bash(xargs grep:*)",
+      "Bash(find \"e:/TheVedicProtocol/VedicProtocol_GitHub/apps/web/src\" -type f \\\\\\( -name \"*.jsx\" -o -name \"*.js\" -o -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec grep -l \"\\\\.from\\\\\\(\" {} \\\\;)",
+      "Bash(cat \"e:/TheVedicProtocol/VedicProtocol_GitHub/Database/triggers/\"*.sql)"
+    ]
+  }
+}

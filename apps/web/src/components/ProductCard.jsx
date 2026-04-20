@@ -2,12 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Leaf, Droplets } from 'lucide-react';
-import pb from '@/lib/pocketbaseClient.js';
+import { getImageUrl } from '@/lib/supabaseClient.js';
 import { Button } from '@/components/ui/button.jsx';
 
 const ProductCard = ({ product }) => {
-  const imageUrl = product.image 
-    ? pb.files.getUrl(product, product.image)
+  const imageUrl = product.image_url
+    ? getImageUrl(product.image_url)
     : 'https://images.unsplash.com/photo-1635868388738-8fb178cf3c87?w=600';
 
   // Determine badge based on category or ingredients

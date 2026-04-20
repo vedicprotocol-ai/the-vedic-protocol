@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,7 @@ export default function BlogPostForm({ post, onSuccess, onCancel }) {
     type: post?.type || 'journal',
     category: post?.category || 'skincare',
     excerpt: post?.excerpt || '',
-    body: post?.body || '',
+    content: post?.content || '',
     read_time: post?.read_time || 5,
     image_url: post?.image_url || '',
     published: post?.published || false,
@@ -72,33 +72,32 @@ export default function BlogPostForm({ post, onSuccess, onCancel }) {
 
     setIsLoading(true);
     try {
+      let error;
       if (post?.id) {
-        await pb.collection('blog_posts').update(post.id, formData, { $autoCancel: false });
-        toast({ title: 'Post updated successfully.' });
+        ({ error } = await supabase.from('blog_posts').update(formData).eq('id', post.id));
+        if (!error) toast({ title: 'Post updated successfully.' });
       } else {
-        await pb.collection('blog_posts').create(formData, { $autoCancel: false });
-        toast({ title: 'Post created successfully.' });
+        ({ error } = await supabase.from('blog_posts').insert(formData));
+        if (!error) toast({ title: 'Post created successfully.' });
+      }
+      if (error) {
+        if (error.code === '23505' && error.message?.includes('slug')) {
+          const msg = 'A post with this slug already exists. Please edit the slug to make it unique.';
+          setSlugError(msg);
+          toast({ title: 'Validation Error', description: msg, variant: 'destructive' });
+        } else {
+          throw error;
+        }
+        return;
       }
       onSuccess();
     } catch (error) {
       console.error('Save post error:', error);
-      const fieldErrors = error?.response?.data || {};
-      
-      if (fieldErrors.slug?.code === 'validation_not_unique') {
-        const msg = 'A post with this slug already exists. Please edit the slug to make it unique.';
-        setSlugError(msg);
-        toast({
-          title: 'Validation Error',
-          description: msg,
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Error saving post',
-          description: error.message || 'An unexpected error occurred.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Error saving post',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -195,11 +194,11 @@ export default function BlogPostForm({ post, onSuccess, onCancel }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="body" className="text-[10px] tracking-[0.1em] uppercase text-[var(--ink-3)]">Body Content (Markdown supported)</Label>
-        <Textarea 
-          id="body" 
-          value={formData.body} 
-          onChange={(e) => handleChange('body', e.target.value)} 
+        <Label htmlFor="content" className="text-[10px] tracking-[0.1em] uppercase text-[var(--ink-3)]">Body Content (Markdown supported)</Label>
+        <Textarea
+          id="content"
+          value={formData.content}
+          onChange={(e) => handleChange('content', e.target.value)}
           placeholder="Write your post content here..."
           className="border-[var(--line-dk)] focus-visible:ring-[var(--gold)] rounded-none min-h-[200px]"
         />

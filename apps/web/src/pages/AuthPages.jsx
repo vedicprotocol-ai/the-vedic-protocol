@@ -266,10 +266,12 @@ export const LoginPage = () => {
 	const [errors, setErrors] = useState({});
 	const [loading, setLoading] = useState(false);
 	const [serverError, setServerError] = useState('');
+	const [showResetHint, setShowResetHint] = useState(false);
 	const { login } = useAuth();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const from = location.state?.from?.pathname || '/dashboard';
+	const from = location.state?.from?.pathname || '/shop';
+	const fromState = location.state?.from?.state || {};
 
 	const validate = () => {
 		const e = {};
@@ -282,15 +284,21 @@ export const LoginPage = () => {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setServerError('');
+		setShowResetHint(false);
 		const errs = validate();
 		if (Object.keys(errs).length) { setErrors(errs); return; }
 		setErrors({});
 		setLoading(true);
 		const result = await login(email, password);
 		if (result.success) {
-			navigate(from, { replace: true });
+			navigate(from, { replace: true, state: fromState });
 		} else {
 			setServerError(result.error || 'Invalid email or password. Please try again.');
+			// Show the password-reset hint for credential failures so users can
+			// self-serve without contacting support.
+			if (!result.errorCode || result.errorCode === 'invalid_credentials') {
+				setShowResetHint(true);
+			}
 			setLoading(false);
 		}
 	};
@@ -303,13 +311,37 @@ export const LoginPage = () => {
 			</Helmet>
 			<AuthCard title="Welcome back." subtitle="Enter your credentials to continue">
 				<ErrorBanner message={serverError} />
+				{showResetHint && (
+					<div
+						style={{
+							padding: '12px 14px',
+							background: '#fffbeb',
+							border: '1px solid #fde68a',
+							borderRadius: '8px',
+							marginBottom: '16px',
+							fontSize: '12px',
+							color: '#92400e',
+							lineHeight: 1.6,
+						}}
+					>
+						Forgotten your password?{' '}
+						<Link
+							to={`/forgot-password`}
+							state={{ prefillEmail: email }}
+							style={{ color: '#92400e', fontWeight: 600, textDecoration: 'underline' }}
+						>
+							Reset it here
+						</Link>{' '}
+						and we'll send you a link to set a new one.
+					</div>
+				)}
 				<form onSubmit={handleSubmit} noValidate>
 					<F
 						label="Email"
 						id="l-email"
 						type="email"
 						value={email}
-						onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: '' })); }}
+						onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: '' })); setShowResetHint(false); }}
 						error={errors.email}
 						required
 						autoComplete="email"
@@ -373,7 +405,11 @@ export const LoginPage = () => {
 					}}
 				>
 					No account?{' '}
-					<Link to="/signup" style={{ color: 'var(--ink)', textDecoration: 'underline' }}>
+					<Link
+						to="/signup"
+						state={location.state?.from ? { from: location.state.from } : undefined}
+						style={{ color: 'var(--ink)', textDecoration: 'underline' }}
+					>
 						Register here
 					</Link>
 				</p>
@@ -394,6 +430,9 @@ export const SignupPage = () => {
 	const [agreed, setAgreed] = useState(false);
 	const { signup } = useAuth();
 	const navigate = useNavigate();
+	const location = useLocation();
+	const fromPath = location.state?.from?.pathname;
+	const fromState = location.state?.from?.state || {};
 
 	const validate = () => {
 		const e = {};
@@ -409,7 +448,7 @@ export const SignupPage = () => {
 		} else if (form.password !== form.passwordConfirm) {
 			e.passwordConfirm = 'Passwords do not match.';
 		}
-		if (!agreed) e.agreed = 'You must agree to the terms to continue.';
+		if (!agreed) e.agreed = 'You must agree to the Terms of Service and Privacy Policy to continue.';
 		return e;
 	};
 
@@ -417,27 +456,64 @@ export const SignupPage = () => {
 		e.preventDefault();
 		setServerError('');
 		setSuccessMsg('');
-		
+
 		const errs = validate();
 		if (Object.keys(errs).length) { setErrors(errs); return; }
-		
+
 		setErrors({});
 		setLoading(true);
-		
-		// Always registers as customer — influencer role is assigned by admin only
-		const result = await signup(form.name, form.email, form.password, form.passwordConfirm, form.phone);
-		
+
+		// Safety timeout: if signup takes longer than 15 s, unblock the button
+		// so the user isn't permanently stuck on "Creating Account…"
+		const timeoutId = setTimeout(() => {
+			setLoading(false);
+			setServerError(
+				'The request is taking too long. Your account may have been created — try logging in, or check your email for a confirmation link.'
+			);
+		}, 15000);
+
+		let result;
+		try {
+			result = await signup(form.name, form.email, form.password, form.passwordConfirm, form.phone);
+		} catch (err) {
+			clearTimeout(timeoutId);
+			setServerError(err.message || 'Registration failed. Please try again.');
+			setLoading(false);
+			return;
+		}
+		clearTimeout(timeoutId);
+
 		if (result.success) {
-			setSuccessMsg('Account created successfully! Redirecting to dashboard...');
-			setTimeout(() => { navigate('/dashboard'); }, 2500);
+			if (result.emailConfirmRequired) {
+				// Email confirmation is enabled in Supabase — no session yet.
+				// Tell the user to check their inbox; the confirmation link will
+				// redirect them straight to /dashboard (emailRedirectTo is set).
+				setSuccessMsg(
+					'Account created! Please check your email and click the confirmation link to activate your account. You will be redirected to the shop automatically.'
+				);
+				setLoading(false);
+			} else {
+				// Session is live — navigate to the originating page (if any) or shop.
+				setSuccessMsg(fromPath ? 'Account created! Redirecting…' : 'Account created successfully! Redirecting to the shop…');
+				setTimeout(() => {
+					if (fromPath) {
+						navigate(fromPath, { replace: true, state: fromState });
+					} else {
+						window.location.href = '/shop?welcome=1';
+					}
+				}, 1500);
+				// loading stays true — page is about to navigate away
+			}
 		} else {
 			const msg = result.error || '';
-			if (msg.includes('email is already registered')) {
+			if (msg.toLowerCase().includes('email is already registered') || msg.toLowerCase().includes('email address')) {
 				setErrors({ email: msg });
+			} else if (msg.toLowerCase().includes('phone number is already registered') || msg.toLowerCase().includes('different number')) {
+				setErrors({ phone: msg });
 			} else if (msg.includes('Password must be at least')) {
 				setErrors({ password: msg });
 			} else {
-				setServerError(msg);
+				setServerError(msg || 'Registration failed. Please try again.');
 			}
 			setLoading(false);
 		}
@@ -605,7 +681,8 @@ export const SignupPage = () => {
 	 FORGOT PASSWORD PAGE
 	 ═══════════════════════════════════════════════ */
 export const ForgotPasswordPage = () => {
-	const [email, setEmail] = useState('');
+	const location = useLocation();
+	const [email, setEmail] = useState(location.state?.prefillEmail || '');
 	const [emailError, setEmailError] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [done, setDone] = useState(false);

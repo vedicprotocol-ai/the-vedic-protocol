@@ -138,6 +138,7 @@ const Header = ({ showDoctorsNav = false }) => {
             </Link>
             {isAdmin && (
               <div
+                className="nav-admin-dropdown"
                 style={{ position: 'relative' }}
                 onMouseEnter={() => setAdminDropdownOpen(true)}
                 onMouseLeave={() => setAdminDropdownOpen(false)}
@@ -147,7 +148,7 @@ const Header = ({ showDoctorsNav = false }) => {
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '4px',
-                    color: (isActive('/admin/doctors') || isActive('/admin/blog')) ? 'var(--ink)' : undefined,
+                    color: (isActive('/admin/doctors') || isActive('/admin/blog') || isActive('/admin/influencers') || isActive('/admin/products')) ? 'var(--ink)' : undefined,
                   }}
                   aria-haspopup="true"
                   aria-expanded={adminDropdownOpen}
@@ -161,7 +162,7 @@ const Header = ({ showDoctorsNav = false }) => {
                   <div style={{
                     position: 'absolute', top: '100%', left: 0,
                     background: 'var(--white)', border: '1px solid var(--line)',
-                    minWidth: '160px', zIndex: 100,
+                    minWidth: '170px', zIndex: 100,
                     boxShadow: '0 8px 24px -4px rgba(0,0,0,0.12)',
                     paddingTop: '4px', paddingBottom: '4px',
                   }}>
@@ -169,6 +170,7 @@ const Header = ({ showDoctorsNav = false }) => {
                       ['/admin/doctors',     'Manage Doctors'],
                       ['/admin/blog',        'Manage Blog'],
                       ['/admin/influencers', 'Manage Influencers'],
+                      ['/admin/products',    'Manage Products'],
                     ].map(([path, label]) => (
                       <Link
                         key={path}
@@ -240,6 +242,25 @@ const Header = ({ showDoctorsNav = false }) => {
             <button className="nav-cta" onClick={scrollToWaitlist} aria-label="Join the waitlist">
               Join Waitlist
             </button>
+
+            {/* Hamburger — mobile only (hidden via CSS on desktop) */}
+            <button
+              className="nav-hamburger"
+              onClick={() => setMobileMenuOpen(o => !o)}
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-nav"
+            >
+              {mobileMenuOpen ? (
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              )}
+            </button>
           </div>
         </nav>
       </header>
@@ -247,6 +268,7 @@ const Header = ({ showDoctorsNav = false }) => {
       {/* ── Mobile Menu Overlay ── */}
       {mobileMenuOpen && (
         <div
+          id="mobile-nav"
           style={{
             position: 'fixed', inset: 0, zIndex: 150,
             background: 'var(--cream)',

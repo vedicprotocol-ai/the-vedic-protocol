@@ -5,19 +5,12 @@ import supabase, { getImageUrl } from '@/lib/supabaseClient.js';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 
-/* ─── Fallback images by category ─────────────────────────── */
-const FALLBACK = {
-  cleanser:    'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/bb1bbc42d8f802318cafc4cce523af40.jpg',
-  even:        'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg',
-  odd:         'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/bec1a032047b5db45bf2f3caadb360bc.jpg',
-};
-
-const getImage = (product, index) => {
-  if (product.image) return getImageUrl(product.image);
-  const name = product.name?.toLowerCase() || '';
-  if (name.includes('cleanser') || name.includes('face wash')) return FALLBACK.cleanser;
-  return index % 2 === 0 ? FALLBACK.even : FALLBACK.odd;
+/* ─── Resolve image URL from DB only — no fallbacks ───────── */
+const getImage = (product) => {
+  if (product.image_url) return getImageUrl(product.image_url);
+  return null;
 };
 
 /* ─── Filter config ────────────────────────────────────────── */
@@ -40,7 +33,7 @@ const useCloseOnEscape = (isOpen, onClose) => {
 /* ═══════════════════════════════════════════════════
    QUICK VIEW MODAL
 ═══════════════════════════════════════════════════ */
-const QuickView = ({ product, index, onClose, onAddToCart }) => {
+const QuickView = ({ product, onClose, onAddToCart }) => {
   const overlayRef = useRef(null);
   useCloseOnEscape(true, onClose);
 
@@ -54,7 +47,7 @@ const QuickView = ({ product, index, onClose, onAddToCart }) => {
     if (e.target === overlayRef.current) onClose();
   };
 
-  const imgSrc = getImage(product, index);
+  const imgSrc = getImage(product);
   const categoryLabel =
     product.category === 'haircare' ? 'Haircare' :
     product.category === 'skincare' ? 'Skincare' :
@@ -79,7 +72,10 @@ const QuickView = ({ product, index, onClose, onAddToCart }) => {
 
         {/* Image */}
         <div className="qv-img-wrap">
-          <img src={imgSrc} alt={product.name} className="qv-img" />
+          {imgSrc
+            ? <img src={imgSrc} alt={product.name} className="qv-img" />
+            : <div className="qv-img-placeholder" />
+          }
         </div>
 
         {/* Details */}
@@ -125,10 +121,10 @@ const QuickView = ({ product, index, onClose, onAddToCart }) => {
 };
 
 /* ═══════════════════════════════════════════════════
-   PRODUCT CARD
+   PRODUCT CARD — compact square tile
 ═══════════════════════════════════════════════════ */
-const ProductCardItem = ({ product, index, onQuickView }) => {
-  const imgSrc = getImage(product, index);
+const ProductCardItem = ({ product, onQuickView }) => {
+  const imgSrc = getImage(product);
   const categoryLabel =
     product.category === 'haircare' ? 'Haircare' :
     product.category === 'skincare' ? 'Skincare' :
@@ -136,48 +132,38 @@ const ProductCardItem = ({ product, index, onQuickView }) => {
 
   return (
     <article className="product-card" aria-label={product.name}>
-      {/* Image */}
       <div className="product-card__img-wrap">
-        <Link to={`/product/${product.id}`} tabIndex={-1} aria-hidden="true">
-          <img
-            src={imgSrc}
-            alt={product.name}
-            loading="lazy"
-            className="product-card__img"
-          />
-        </Link>
+        <button
+          className="product-card__img-btn"
+          onClick={() => onQuickView(product)}
+          aria-label={`Quick view ${product.name}`}
+          tabIndex={-1}
+        >
+          {imgSrc
+            ? <img src={imgSrc} alt={product.name} loading="lazy" className="product-card__img" />
+            : <div className="product-card__no-img" />
+          }
+        </button>
 
-        {/* Category badge on image */}
+        {/* Category badge */}
         <span className="product-card__cat-badge">{categoryLabel}</span>
 
-        {/* Quick view trigger */}
+        {/* Name + price overlay */}
+        <div className="product-card__overlay">
+          <Link to={`/product/${product.id}`}>
+            <h2 className="product-card__name">{product.name}</h2>
+          </Link>
+          <span className="product-card__price">₹{product.price?.toFixed(0)}</span>
+        </div>
+
+        {/* Add to Ritual on hover */}
         <button
           className="product-card__quick"
-          onClick={() => onQuickView(product, index)}
-          aria-label={`Quick view ${product.name}`}
+          onClick={() => onQuickView(product)}
+          aria-label={`Add ${product.name} to ritual`}
         >
-          Quick View
+          Add to Ritual
         </button>
-      </div>
-
-      {/* Body */}
-      <div className="product-card__body">
-        <p className="section-label">{categoryLabel}</p>
-        <Link to={`/product/${product.id}`}>
-          <h2 className="product-card__name">{product.name}</h2>
-        </Link>
-        <p className="product-card__hint">
-          {product.tagline || product.description?.slice(0, 80) || 'Clinical botanical formulation.'}
-        </p>
-        <div className="product-card__footer">
-          <span className="product-card__price">₹{product.price?.toFixed(0)}</span>
-          <button
-            className="btn btn-dark btn-sm"
-            onClick={() => onQuickView(product, index)}
-          >
-            Add to Ritual
-          </button>
-        </div>
       </div>
     </article>
   );
@@ -187,12 +173,7 @@ const ProductCardItem = ({ product, index, onQuickView }) => {
 const SkeletonCard = () => (
   <div className="product-card product-card--skeleton" aria-hidden="true">
     <div className="product-card__img-wrap">
-      <div className="skeleton-block" style={{ aspectRatio: '3/4', width: '100%' }} />
-    </div>
-    <div className="product-card__body">
-      <div className="skeleton-line skeleton-line--sub" style={{ width: '40%', marginBottom: '10px' }} />
-      <div className="skeleton-line skeleton-line--title" style={{ marginBottom: '10px' }} />
-      <div className="skeleton-line skeleton-line--sub" />
+      <div className="skeleton-block" style={{ width: '100%', height: '100%' }} />
     </div>
   </div>
 );
@@ -203,40 +184,153 @@ const SkeletonCard = () => (
 export const ShopPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { addToCart } = useCart();
+  const { currentUser } = useAuth();
 
-  /* Initialise filter from URL (?category=skincare from homepage cards) */
-  const initFilter = () => {
-    const cat = searchParams.get('category');
-    if (cat === 'skincare' || cat === 'haircare') return cat;
-    return 'all';
-  };
+  // Detect new-user welcome flag (?welcome=1) and clear it from the URL
+  // immediately so a page refresh doesn't re-show the banner.
+  const isWelcome = searchParams.get('welcome') === '1';
+  useEffect(() => {
+    if (isWelcome) {
+      setSearchParams((prev) => {
+        prev.delete('welcome');
+        return prev;
+      }, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [filter, setFilter]         = useState(initFilter);
+  // Always land on "all" — user navigates to a category via the filter pills
+  const [filter, setFilter]         = useState('all');
   const [products, setProducts]     = useState([]);
   const [loading, setLoading]       = useState(true);
-  const [quickView, setQuickView]   = useState(null); // { product, index }
+  const [fetchError, setFetchError] = useState(null);
+  const [quickView, setQuickView]   = useState(null); // product object
   const [addedToast, setAddedToast] = useState(null);
 
+  // Ref to the product grid — used for the local reveal fallback below.
+  const gridRef = useRef(null);
+
+  // Keep a ref to the current filter so async callbacks (realtime, focus)
+  // always use the latest value without creating stale closures.
+  const filterRef = useRef(filter);
+  useEffect(() => { filterRef.current = filter; }, [filter]);
+
+  // Monotonically-increasing fetch generation counter.
+  // Every call to fetchProducts stamps its result with the generation at call
+  // time; if a newer call has already started by the time the await resolves,
+  // the stale result is silently discarded.  This prevents two concurrent
+  // sources (e.g. realtime event + focus refetch) from racing each other and
+  // leaving loading=false + products=[] visible for 1-2 s.
+  const fetchGenRef = useRef(0);
+
   const fetchProducts = useCallback(async (cat) => {
+    const gen = ++fetchGenRef.current;
     setLoading(true);
+    setFetchError(null);
     try {
-      let query = supabase.from('products').select('*').order('created_at', { ascending: false }).limit(60);
+      let query = supabase
+        .from('products')
+        .select('*')
+        .order('created', { ascending: false })
+        .limit(60);
       if (cat !== 'all') query = query.eq('category', cat);
       const { data, error } = await query;
+      if (gen !== fetchGenRef.current) return; // stale — a newer fetch is in flight
       if (error) throw error;
       setProducts(data ?? []);
     } catch (e) {
+      if (gen !== fetchGenRef.current) return;
       console.error('Shop fetch error:', e);
+      setFetchError(e.message || 'Failed to load products.');
       setProducts([]);
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchProducts(filter); }, [filter]);
+  // Fetch on mount and whenever the active filter changes.
+  useEffect(() => { fetchProducts(filter); }, [filter, fetchProducts]);
+
+  // ── Local reveal fallback ─────────────────────────────────────────────────
+  // The global MutationObserver in useScrollReveal is the primary mechanism
+  // for adding .visible to .reveal-stagger elements. However, when the user
+  // switches filter tabs, setSearchParams changes location.search at the same
+  // instant as the filter state update, causing useScrollReveal to tear down
+  // and rebuild its observers. In that narrow window the new product grid can
+  // mount before the new MutationObserver is observing — leaving it at
+  // opacity: 0 (the "blank screen" after a filter switch).
+  //
+  // This effect runs whenever loading transitions false and products exist,
+  // i.e. exactly once per successful fetch. It gives the global IO ~80 ms to
+  // fire naturally; if it hasn't, we add .visible directly.
+  useEffect(() => {
+    if (loading || products.length === 0) return;
+    const el = gridRef.current;
+    if (!el) return;
+    if (el.classList.contains('visible')) return; // already handled by global IO
+
+    const t = setTimeout(() => {
+      if (el && !el.classList.contains('visible')) {
+        el.classList.add('visible');
+      }
+    }, 80);
+
+    return () => clearTimeout(t);
+  }, [loading, products]);
+
+  // ── Live sync ────────────────────────────────────────────────────────────
+  // 1. Supabase Realtime: immediately reflect any INSERT / UPDATE / DELETE on
+  //    the products table — covers products added from the admin panel while
+  //    the shop page is open.
+  // 2. window "focus": re-fetch when the user returns to this browser window
+  //    or tab after working in the admin panel.
+  // 3. document "visibilitychange": re-fetch when the tab becomes visible
+  //    again (covers browser-tab switching).
+  // filterRef ensures the callbacks always use the current filter without
+  // needing to recreate the listeners on every filter change.
+  useEffect(() => {
+    const refetch = () => fetchProducts(filterRef.current);
+
+    // Supabase Realtime subscription
+    const channel = supabase
+      .channel('shop-products-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        refetch,
+      )
+      .subscribe();
+
+    // Re-fetch on window focus (switching from another app or browser window)
+    window.addEventListener('focus', refetch);
+
+    // Re-fetch when this tab becomes visible again
+    const handleVisibility = () => { if (!document.hidden) refetch(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('focus', refetch);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [fetchProducts]); // fetchProducts is stable (useCallback with [])
 
   const handleFilter = (key) => {
+    // Guard: clicking the already-active tab is a no-op. Without this, the
+    // setLoading(true) below would fire but filter wouldn't change, so the
+    // [filter] effect would never re-run and loading would stay true forever
+    // (permanent skeleton). Applies to All Formulations, Skincare, and Haircare.
+    if (key === filter) return;
+
+    // Increment the fetch generation immediately so any in-flight fetch
+    // triggered by realtime / focus is already stale before we even set filter.
+    // Then batch all state resets together so React commits them in one pass —
+    // the component renders with loading=true (skeletons) before the new fetch
+    // effect fires, eliminating the window where products=[] + loading=false
+    // would briefly show "No formulations found".
+    fetchGenRef.current += 1;
     setFilter(key);
+    setLoading(true);
+    setFetchError(null);
     setSearchParams(key === 'all' ? {} : { category: key });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -272,14 +366,32 @@ export const ShopPage = () => {
         {/* ── Page hero ── */}
         <div className="shop-hero reveal">
           <div className="shop-hero__text">
-            <p className="page-hero-label">The Collection</p>
-            <h1 className="shop-hero__h1">
-              Clinical<br /><em>formulations.</em>
-            </h1>
-            <p className="shop-hero__sub">
-              Every formulation exists for a reason. PhD-formulated,
-              100% botanical, zero synthetics.
-            </p>
+            {isWelcome ? (
+              <>
+                <p className="page-hero-label">Welcome to The Vedic Protocol</p>
+                <h1 className="shop-hero__h1">
+                  {currentUser?.name
+                    ? <>{currentUser.name.split(' ')[0]},<br /><em>begin your protocol.</em></>
+                    : <>Begin your<br /><em>protocol.</em></>
+                  }
+                </h1>
+                <p className="shop-hero__sub">
+                  Your account is ready. Explore our PhD-formulated, 100% botanical
+                  formulations and find the ritual that's right for you.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="page-hero-label">The Collection</p>
+                <h1 className="shop-hero__h1">
+                  Clinical<br /><em>formulations.</em>
+                </h1>
+                <p className="shop-hero__sub">
+                  Every formulation exists for a reason. PhD-formulated,
+                  100% botanical, zero synthetics.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Pill filter row */}
@@ -293,9 +405,6 @@ export const ShopPage = () => {
                 onClick={() => handleFilter(f.key)}
               >
                 {f.label}
-                {filter === f.key && products.length > 0 && !loading && (
-                  <span className="shop-filter-pill__count">{products.length}</span>
-                )}
               </button>
             ))}
           </div>
@@ -307,6 +416,14 @@ export const ShopPage = () => {
             <div className="shop-grid">
               {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
+          ) : fetchError ? (
+            <div className="shop-empty reveal">
+              <p className="shop-empty__title">Could not load formulations.</p>
+              <p className="shop-empty__sub">{fetchError}</p>
+              <button className="btn btn-light" onClick={() => fetchProducts(filter)}>
+                Try Again
+              </button>
+            </div>
           ) : products.length === 0 ? (
             <div className="shop-empty reveal">
               <p className="shop-empty__title">No formulations found.</p>
@@ -316,13 +433,12 @@ export const ShopPage = () => {
               </button>
             </div>
           ) : (
-            <div className="shop-grid reveal-stagger">
-              {products.map((p, i) => (
+            <div className="shop-grid reveal-stagger" ref={gridRef}>
+              {products.map((p) => (
                 <ProductCardItem
                   key={p.id}
                   product={p}
-                  index={i}
-                  onQuickView={(prod, idx) => setQuickView({ product: prod, index: idx })}
+                  onQuickView={(prod) => setQuickView(prod)}
                 />
               ))}
             </div>
@@ -353,8 +469,7 @@ export const ShopPage = () => {
       {/* ── Quick View modal ── */}
       {quickView && (
         <QuickView
-          product={quickView.product}
-          index={quickView.index}
+          product={quickView}
           onClose={() => setQuickView(null)}
           onAddToCart={handleAddToCart}
         />

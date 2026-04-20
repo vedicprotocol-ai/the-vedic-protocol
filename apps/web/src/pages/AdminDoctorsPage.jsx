@@ -304,7 +304,7 @@ export default function AdminDoctorsPage() {
       const { data: res } = await supabase.from('availability_slots').select('*')
         .eq('doctor_id', selectedDoctorId)
         .gte('date', today + 'T00:00:00')
-        .order('date').order('time_slot');
+        .order('date').order('time');
       setSlots(res ?? []);
     } catch (err) {
       console.error('Error fetching slots:', err);
@@ -321,7 +321,7 @@ export default function AdminDoctorsPage() {
   }, [selectedDoctorId, activeTab]);
 
   const existingSlotKeys = new Set(
-    slots.map(s => `${s.date.substring(0, 10)}|${s.time_slot}`)
+    slots.map(s => `${s.date.substring(0, 10)}|${s.time}`)
   );
 
   const handleAddSingleSlot = async (e) => {
@@ -336,8 +336,8 @@ export default function AdminDoctorsPage() {
       await supabase.from('availability_slots').insert({
         doctor_id: selectedDoctorId,
         date: singleSlotForm.date + 'T12:00:00',
-        time_slot: singleSlotForm.time,
-        is_available: true,
+        time: singleSlotForm.time,
+        is_booked: false,
       });
       setSingleSlotForm({ date: '', time: '' });
       await fetchSlots();
@@ -378,8 +378,8 @@ export default function AdminDoctorsPage() {
               supabase.from('availability_slots').insert({
                 doctor_id: selectedDoctorId,
                 date: dateStr + 'T12:00:00',
-                time_slot: timeStr,
-                is_available: true,
+                time: timeStr,
+                is_booked: false,
               })
             );
           }
@@ -673,14 +673,14 @@ export default function AdminDoctorsPage() {
                             />
                           </td>
                           <td>{new Date(slot.date).toLocaleDateString()}</td>
-                          <td>{slot.time_slot}</td>
+                          <td>{slot.time}</td>
                           <td>
                             <span style={{
                               display: 'inline-block', padding: '4px 8px', borderRadius: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em',
-                              background: slot.is_available ? '#dcfce7' : '#f3f4f6',
-                              color: slot.is_available ? '#166534' : '#4b5563'
+                              background: !slot.is_booked ? '#dcfce7' : '#f3f4f6',
+                              color: !slot.is_booked ? '#166534' : '#4b5563'
                             }}>
-                              {slot.is_available ? 'Available' : 'Booked'}
+                              {slot.is_booked ? 'Booked' : 'Available'}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast.js';
-import pb from '@/lib/pocketbaseClient.js';
+import supabase from '@/lib/supabaseClient.js';
 
 const NewsletterSignup = ({ className = '' }) => {
   const [email, setEmail] = useState('');
@@ -13,16 +13,15 @@ const NewsletterSignup = ({ className = '' }) => {
     if (!email || loading) return;
     setLoading(true);
     try {
-      await pb.collection('newsletter_subscribers').create({ email }, { $autoCancel: false });
+      const { error } = await supabase.from('newsletter_subscribers').insert({ email });
+      if (error) {
+        if (error.code === '23505') { setDone(true); return; }
+        throw error;
+      }
       setDone(true);
       setEmail('');
     } catch (err) {
-      const code = err?.response?.data?.email?.code;
-      if (code === 'validation_not_unique') {
-        setDone(true);
-      } else {
-        toast({ title: 'Something went wrong. Please try again.' });
-      }
+      toast({ title: 'Something went wrong. Please try again.' });
     } finally {
       setLoading(false);
     }

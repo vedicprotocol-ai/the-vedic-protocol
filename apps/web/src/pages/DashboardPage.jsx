@@ -68,7 +68,8 @@ export const DashboardPage = () => {
     setOrderCancelModal(null);
     try {
       // 1. Mark order as cancelled
-      await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
+      const { error: cancelError } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
+      if (cancelError) throw cancelError;
 
       // 2. Reverse Vedic Points earned on this order
       //    Try to find the exact loyalty record tied to this order first

@@ -274,7 +274,13 @@ export const CheckoutPage = () => {
         const updatedBalance = usePoints
           ? Math.max(0, pointsAvailable - Math.min(pointsToUse, pointsAvailable)) + pts
           : pointsAvailable + pts;
-        await supabase.from('customers').update({ vedic_points: updatedBalance }).eq('id', currentUser.id);
+        const newTier = updatedBalance >= 5000 ? 'Gold' : updatedBalance >= 1000 ? 'Silver' : 'Bronze';
+        await supabase.from('customers').update({ vedic_points: updatedBalance, tier: newTier }).eq('id', currentUser.id);
+      } else if (usePoints && pointsToUse > 0) {
+        // Points were only spent (no new points earned) — recalculate tier from new balance
+        const updatedBalance = Math.max(0, pointsAvailable - Math.min(pointsToUse, pointsAvailable));
+        const newTier = updatedBalance >= 5000 ? 'Gold' : updatedBalance >= 1000 ? 'Silver' : 'Bronze';
+        await supabase.from('customers').update({ tier: newTier }).eq('id', currentUser.id);
       }
 
       clearCart();

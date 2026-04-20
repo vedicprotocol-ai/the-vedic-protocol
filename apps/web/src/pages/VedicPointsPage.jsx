@@ -5,18 +5,30 @@ import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 
+const REDEEM_TYPES = ['redeem', 'redemption'];
+
 const VedicPointsPage = () => {
   const { currentUser, isAuthenticated } = useAuth();
-  const [pointsData, setPointsData] = useState(null);
+  const [balance, setBalance] = useState(0);
+  const [tier, setTier] = useState('Bronze');
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
     const fetchPointsData = async () => {
       if (!isAuthenticated || !currentUser) return;
-      
+
       try {
-        const { data: customer } = await supabase.from('customers').select('*').eq('id', currentUser.id).single();
-        setPointsData(customer);
+        const { data: customer } = await supabase.from('customers').select('tier').eq('id', currentUser.id).single();
+        if (customer?.tier) setTier(customer.tier);
+
+        const { data: allPoints } = await supabase.from('loyalty_points').select('points_earned, transaction_type')
+          .eq('customer_id', currentUser.id);
+
+        const total = (allPoints ?? []).reduce((sum, record) => {
+          const pts = record.points_earned ?? 0;
+          return REDEEM_TYPES.includes(record.transaction_type) ? sum - pts : sum + pts;
+        }, 0);
+        setBalance(Math.max(0, total));
 
         const { data: pointsHistory } = await supabase.from('loyalty_points').select('*')
           .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(10);
@@ -47,7 +59,7 @@ const VedicPointsPage = () => {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
           <div className="bg-card p-8 rounded-md border border-border text-center">
             <h3 className="font-serif text-xl mb-2">01. Earn</h3>
-            <p className="text-sm text-foreground/70">Accumulate 10 points for every $1 invested in your protocol.</p>
+            <p className="text-sm text-foreground/70">Accumulate 10 Vedic Points for every ₹1 invested in your protocol.</p>
           </div>
           <div className="bg-card p-8 rounded-md border border-border text-center">
             <h3 className="font-serif text-xl mb-2">02. Accumulate</h3>
@@ -55,7 +67,7 @@ const VedicPointsPage = () => {
           </div>
           <div className="bg-card p-8 rounded-md border border-border text-center">
             <h3 className="font-serif text-xl mb-2">03. Redeem</h3>
-            <p className="text-sm text-foreground/70">Apply points at checkout for exclusive formulations.</p>
+            <p className="text-sm text-foreground/70">Apply points at checkout. 4 Vedic Points = ₹1 off your order.</p>
           </div>
         </section>
 
@@ -63,14 +75,13 @@ const VedicPointsPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             {/* User Status */}
             <div className="lg:col-span-1">
-              <div className="bg-foreground text-background p-8 rounded-md">
-                <p className="text-xs uppercase tracking-wider mb-2 opacity-70">Current Balance</p>
-                <h2 className="text-5xl font-serif mb-6">
-                  {pointsData?.vedic_points || 0}
-                </h2>
-                <div className="border-t border-background/20 pt-6">
-                  <p className="text-xs uppercase tracking-wider mb-1 opacity-70">Clinical Tier</p>
-                  <p className="text-xl font-serif">{pointsData?.tier || 'Bronze'}</p>
+              <div className="bg-card text-foreground p-8 rounded-md border border-border">
+                <p className="text-xs uppercase tracking-wider mb-2 text-foreground/70">Current Balance</p>
+                <h2 className="text-5xl font-serif mb-1">{balance}</h2>
+                <p className="text-sm text-foreground/60 mb-6">Vedic Points &nbsp;·&nbsp; ₹{(balance / 4).toFixed(2)} value</p>
+                <div className="border-t border-border pt-6">
+                  <p className="text-xs uppercase tracking-wider mb-1 text-foreground/70">Clinical Tier</p>
+                  <p className="text-xl font-serif">{tier}</p>
                 </div>
               </div>
             </div>
@@ -81,17 +92,34 @@ const VedicPointsPage = () => {
               <div className="bg-card border border-border rounded-md overflow-hidden">
                 {history.length > 0 ? (
                   <div className="divide-y divide-border">
-                    {history.map(record => (
-                      <div key={record.id} className="p-4 flex justify-between items-center">
-                        <div>
-                          <p className="text-sm font-medium capitalize">{record.transaction_type}</p>
-                          <p className="text-xs text-foreground/60">{new Date(record.created).toLocaleDateString()}</p>
+                    {history.map(record => {
+                      const isDebit = REDEEM_TYPES.includes(record.transaction_type);
+                      const pts = Math.abs(record.points_earned ?? 0);
+                      const label = record.transaction_type
+                        ? record.transaction_type.charAt(0).toUpperCase() + record.transaction_type.slice(1)
+                        : '—';
+                      return (
+                        <div key={record.id} className="p-4 flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium">{label}</p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <p className="text-xs text-foreground/60">
+                                {new Date(record.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </p>
+                              {record.order_id && (
+                                <p className="text-xs text-foreground/40">Order #{record.order_id.slice(0, 8).toUpperCase()}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className={`font-medium text-sm ${isDebit ? 'text-red-500' : 'text-green-600'}`}>
+                              {isDebit ? '−' : '+'}{pts} pts
+                            </span>
+                            <p className="text-xs text-foreground/50">₹{(pts / 4).toFixed(2)}</p>
+                          </div>
                         </div>
-                        <span className="font-medium text-foreground">
-                          {record.transaction_type === 'purchase' ? '+' : '-'}{record.points_earned || record.points_redeemed}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-8 text-center text-foreground/60 text-sm">

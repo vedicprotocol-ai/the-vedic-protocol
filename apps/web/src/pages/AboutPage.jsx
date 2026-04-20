@@ -44,7 +44,7 @@ const DIFFERENTIATORS = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AboutPage() {
+export function AboutPage() {
   useScrollReveal();
 
   return (
@@ -310,3 +310,5 @@ export default function AboutPage() {
     </>
   );
 }
+
+export default AboutPage;

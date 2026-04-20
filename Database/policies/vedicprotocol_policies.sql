@@ -542,6 +542,12 @@ CREATE POLICY orders_self_insert
   TO authenticated
   WITH CHECK (customer_id = auth.uid());
 
+CREATE POLICY orders_self_update
+  ON public.orders
+  FOR UPDATE
+  TO authenticated
+  USING     (customer_id = auth.uid())
+  WITH CHECK(customer_id = auth.uid());
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- TABLE: products

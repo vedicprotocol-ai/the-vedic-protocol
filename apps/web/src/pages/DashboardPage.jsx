@@ -2,7 +2,7 @@
    DASHBOARD PAGE
    ═══════════════════════════════════════════════ */
 import React, { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import supabase from '@/lib/supabaseClient.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
@@ -13,7 +13,6 @@ import AddressesSidebar from '@/components/AddressesSidebar.jsx';
 
 export const DashboardPage = () => {
   const { currentUser, logout, isInfluencer } = useAuth();
-  const navigate = useNavigate();
   const [orders, setOrders]           = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -80,16 +79,7 @@ export const DashboardPage = () => {
         .eq('order_id', order.id);
 
       if (earnedRecords && earnedRecords.length > 0) {
-        // Reverse each record individually
-        const reversals = earnedRecords
-          .filter(r => !['redeem', 'redemption', 'order_cancelled'].includes(r.transaction_type))
-          .map(r => ({
-            customer_id: currentUser.id,
-            points_earned: r.points_earned,
-            transaction_type: 'order_cancelled',
-            order_id: order.id,
-          }));
-        // Restore any points that were *redeemed* as part of this order
+        // Only restore points that were redeemed as part of this order
         const restorations = earnedRecords
           .filter(r => ['redeem', 'redemption'].includes(r.transaction_type))
           .map(r => ({
@@ -98,19 +88,7 @@ export const DashboardPage = () => {
             transaction_type: 'order_restore',
             order_id: order.id,
           }));
-        const toInsert = [...reversals, ...restorations];
-        if (toInsert.length > 0) await supabase.from('loyalty_points').insert(toInsert);
-      } else {
-        // Fallback: calculate from order total (10 pts per ₹1)
-        const pointsEarned = Math.floor((order.total || 0) * 10);
-        if (pointsEarned > 0) {
-          await supabase.from('loyalty_points').insert({
-            customer_id: currentUser.id,
-            points_earned: pointsEarned,
-            transaction_type: 'order_cancelled',
-            order_id: order.id,
-          });
-        }
+        if (restorations.length > 0) await supabase.from('loyalty_points').insert(restorations);
       }
 
       // 3. Restore stock for each cancelled item

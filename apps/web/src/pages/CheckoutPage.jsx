@@ -221,12 +221,22 @@ export const CheckoutPage = () => {
         payment_method: 'credit_card',
         payment_status: 'pending',
         coupon_code: appliedCoupon?.code || null,
-        coupon_discount: couponDiscount || null,
-        points_used: usePoints ? Math.min(pointsToUse, pointsAvailable) : 0,
-        points_discount: pointsDiscount || null,
+        discount: couponDiscount || 0,
       };
       const { data: order, error: orderErr } = await supabase.from('orders').insert(orderData).select().single();
       if (orderErr) throw orderErr;
+
+      // If vedic points were used, insert a separate row for the points discount
+      if (usePoints && pointsDiscount > 0) {
+        await supabase.from('orders').insert({
+          customer_id: currentUser.id,
+          coupon_code: 'Vedic Points Used',
+          discount: pointsDiscount,
+          notes: `Points discount for order ${order.id}`,
+          status: 'pending',
+          payment_status: 'pending',
+        });
+      }
 
       // Decrement stock for each purchased product
       for (const item of cartItems) {

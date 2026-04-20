@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://thevedicprotocol.com/sitemap.xml

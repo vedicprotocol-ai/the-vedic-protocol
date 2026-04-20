@@ -18,9 +18,6 @@ const VedicPointsPage = () => {
       if (!isAuthenticated || !currentUser) return;
 
       try {
-        const { data: customer } = await supabase.from('customers').select('tier').eq('id', currentUser.id).single();
-        if (customer?.tier) setTier(customer.tier);
-
         const { data: allPoints } = await supabase.from('loyalty_points').select('points_earned, transaction_type')
           .eq('customer_id', currentUser.id);
 
@@ -28,7 +25,9 @@ const VedicPointsPage = () => {
           const pts = record.points_earned ?? 0;
           return REDEEM_TYPES.includes(record.transaction_type) ? sum - pts : sum + pts;
         }, 0);
-        setBalance(Math.max(0, total));
+        const computed = Math.max(0, total);
+        setBalance(computed);
+        setTier(computed >= 5000 ? 'Gold' : computed >= 1000 ? 'Silver' : 'Bronze');
 
         const { data: pointsHistory } = await supabase.from('loyalty_points').select('*')
           .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(10);

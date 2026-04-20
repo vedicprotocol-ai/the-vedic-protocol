@@ -520,16 +520,31 @@ export const DashboardPage = () => {
 /* ═══════════════════════════════════════════════
    VEDIC POINTS PAGE
    ═══════════════════════════════════════════════ */
+const VP_REDEEM_TYPES = ['redeem', 'redemption'];
+
 export const VedicPointsPage = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [balance, setBalance] = useState(0);
+  const [currentTier, setCurrentTier] = useState('Bronze');
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser) { setLoading(false); return; }
-    supabase.from('loyalty_points').select('*')
-      .eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(20)
-      .then(({ data }) => { setHistory(data ?? []); setLoading(false); }).catch(() => setLoading(false));
+    Promise.all([
+      supabase.from('loyalty_points').select('points_earned, transaction_type').eq('customer_id', currentUser.id),
+      supabase.from('loyalty_points').select('*').eq('customer_id', currentUser.id).order('created', { ascending: false }).limit(20),
+    ]).then(([{ data: allPts }, { data: hist }]) => {
+      const total = (allPts ?? []).reduce((sum, r) => {
+        const pts = r.points_earned ?? 0;
+        return VP_REDEEM_TYPES.includes(r.transaction_type) ? sum - pts : sum + pts;
+      }, 0);
+      const computed = Math.max(0, total);
+      setBalance(computed);
+      setCurrentTier(computed >= 5000 ? 'Gold' : computed >= 1000 ? 'Silver' : 'Bronze');
+      setHistory(hist ?? []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, [isAuthenticated, currentUser]);
 
   const tiers = [
@@ -574,16 +589,16 @@ export const VedicPointsPage = () => {
             <p className="section-label">Clinical Tiers</p>
             <h2 className="section-h2" style={{ marginBottom: '40px' }}>Your tier<br /><em>unlocks more.</em></h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '20px' }}>
-              {tiers.map((tier, i) => {
-                const isCurrent = currentUser?.tier === tier.name || (!currentUser?.tier && i === 0);
+              {tiers.map((t, i) => {
+                const isCurrent = isAuthenticated ? currentTier === t.name : i === 0;
                 return (
-                  <div key={tier.name} style={{ padding: '32px', background: isCurrent ? 'var(--ink)' : 'var(--white)', border: `1px solid ${isCurrent ? 'var(--ink)' : 'var(--line)'}` }}>
+                  <div key={t.name} style={{ padding: '32px', background: isCurrent ? 'var(--ink)' : 'var(--white)', border: `1px solid ${isCurrent ? 'var(--ink)' : 'var(--line)'}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                      <h3 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: isCurrent ? 'var(--gold)' : 'var(--ink)' }}>{tier.name}</h3>
+                      <h3 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: isCurrent ? 'var(--gold)' : 'var(--ink)' }}>{t.name}</h3>
                       {isCurrent && <span style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid rgba(201,169,110,0.4)', padding: '4px 8px' }}>Current</span>}
                     </div>
-                    <p style={{ fontSize: '11px', color: isCurrent ? 'rgba(255,255,255,0.4)' : 'var(--ink-4)', marginBottom: '12px', letterSpacing: '0.04em' }}>{tier.range}</p>
-                    <p style={{ fontSize: '13px', color: isCurrent ? 'rgba(255,255,255,0.7)' : 'var(--ink-3)', lineHeight: 1.7 }}>{tier.perks}</p>
+                    <p style={{ fontSize: '11px', color: isCurrent ? 'rgba(255,255,255,0.4)' : 'var(--ink-4)', marginBottom: '12px', letterSpacing: '0.04em' }}>{t.range}</p>
+                    <p style={{ fontSize: '13px', color: isCurrent ? 'rgba(255,255,255,0.7)' : 'var(--ink-3)', lineHeight: 1.7 }}>{t.perks}</p>
                   </div>
                 );
               })}
@@ -597,10 +612,10 @@ export const VedicPointsPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '40px', alignItems: 'start' }}>
               <div style={{ background: 'var(--ink)', padding: '32px' }}>
                 <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '12px' }}>Current Balance</p>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: '56px', color: 'var(--gold)', lineHeight: 1, marginBottom: '16px' }}>{currentUser?.vedic_points || 0}</p>
+                <p style={{ fontFamily: 'var(--serif)', fontSize: '56px', color: 'var(--gold)', lineHeight: 1, marginBottom: '16px' }}>{balance}</p>
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                   <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>Clinical Tier</p>
-                  <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--white)' }}>{currentUser?.tier || 'Bronze'}</p>
+                  <p style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--white)' }}>{currentTier}</p>
                 </div>
               </div>
               <div>
@@ -622,8 +637,8 @@ export const VedicPointsPage = () => {
                       <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px', gap: '16px', padding: '14px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center' }}>
                         <span style={{ fontSize: '13px', color: 'var(--ink)', textTransform: 'capitalize' }}>{r.transaction_type}</span>
                         <span style={{ fontSize: '11px', color: 'var(--ink-4)' }}>{new Date(r.created).toLocaleDateString('en-IN', { day:'numeric', month:'short' })}</span>
-                        <span style={{ fontSize: '13px', color: r.transaction_type === 'purchase' ? 'var(--gold)' : 'var(--ink)', textAlign: 'right', fontWeight: 500 }}>
-                          {r.transaction_type === 'purchase' ? '+' : '−'}{r.points_earned || r.points_redeemed}
+                        <span style={{ fontSize: '13px', color: VP_REDEEM_TYPES.includes(r.transaction_type) ? 'var(--ink)' : 'var(--gold)', textAlign: 'right', fontWeight: 500 }}>
+                          {VP_REDEEM_TYPES.includes(r.transaction_type) ? '−' : '+'}{r.points_earned ?? 0}
                         </span>
                       </div>
                     ))}

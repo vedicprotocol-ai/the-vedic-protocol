@@ -20,6 +20,8 @@ export const DashboardPage = () => {
   const [apptLoading, setApptLoading] = useState(true);
   const [tab, setTab]                 = useState('orders');
   const [cancellingId, setCancellingId] = useState(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [orderCancelModal, setOrderCancelModal] = useState(null); // holds order awaiting confirm
   const [selectedItem, setSelectedItem] = useState(null); // { type: 'order'|'appointment', data: {...} }
 
   const DB_STYLES = '@keyframes db-slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }';
@@ -60,6 +62,89 @@ export const DashboardPage = () => {
       .then(({ data }) => { setAppointments(data ?? []); setApptLoading(false); })
       .catch(() => setApptLoading(false));
   }, [currentUser]);
+
+  const handleCancelOrder = async (order) => {
+    setCancellingOrderId(order.id);
+    setOrderCancelModal(null);
+    try {
+      // 1. Mark order as cancelled
+      await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
+
+      // 2. Reverse Vedic Points earned on this order
+      //    Try to find the exact loyalty record tied to this order first
+      const { data: earnedRecords } = await supabase
+        .from('loyalty_points')
+        .select('id, points_earned, transaction_type')
+        .eq('customer_id', currentUser.id)
+        .eq('order_id', order.id);
+
+      if (earnedRecords && earnedRecords.length > 0) {
+        // Reverse each record individually
+        const reversals = earnedRecords
+          .filter(r => !['redeem', 'redemption', 'order_cancelled'].includes(r.transaction_type))
+          .map(r => ({
+            customer_id: currentUser.id,
+            points_earned: r.points_earned,
+            transaction_type: 'order_cancelled',
+            order_id: order.id,
+          }));
+        // Restore any points that were *redeemed* as part of this order
+        const restorations = earnedRecords
+          .filter(r => ['redeem', 'redemption'].includes(r.transaction_type))
+          .map(r => ({
+            customer_id: currentUser.id,
+            points_earned: r.points_earned,
+            transaction_type: 'order_restore',
+            order_id: order.id,
+          }));
+        const toInsert = [...reversals, ...restorations];
+        if (toInsert.length > 0) await supabase.from('loyalty_points').insert(toInsert);
+      } else {
+        // Fallback: calculate from order total (10 pts per ₹1)
+        const pointsEarned = Math.floor((order.total || 0) * 10);
+        if (pointsEarned > 0) {
+          await supabase.from('loyalty_points').insert({
+            customer_id: currentUser.id,
+            points_earned: pointsEarned,
+            transaction_type: 'order_cancelled',
+            order_id: order.id,
+          });
+        }
+      }
+
+      // 3. Restore stock for each cancelled item
+      const items = order.items ?? [];
+      for (const item of items) {
+        if (!item.id) continue;
+        const qty = item.quantity || item.qty || 0;
+        if (qty <= 0) continue;
+        const { data: product } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', item.id)
+          .single();
+        if (product != null) {
+          await supabase
+            .from('products')
+            .update({ stock: (product.stock || 0) + qty })
+            .eq('id', item.id);
+        }
+      }
+
+      // 4. Update local state
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' } : o));
+      setSelectedItem(prev =>
+        prev && prev.type === 'order' && prev.data.id === order.id
+          ? { ...prev, data: { ...prev.data, status: 'cancelled' } }
+          : prev
+      );
+    } catch (err) {
+      console.error('Order cancellation failed:', err);
+      alert('Failed to cancel order. Please try again or contact support.');
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
 
   const handleCancelAppointment = async (apptId, slotId, apptData) => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
@@ -124,6 +209,77 @@ export const DashboardPage = () => {
         <title>Dashboard | The Vedic Protocol</title>
         <meta name="robots" content="noindex" />
       </Helmet>
+
+      {/* ── Order cancel confirmation modal ── */}
+      {orderCancelModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9000,
+            background: 'rgba(20,18,14,0.55)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+          }}
+          onClick={() => setOrderCancelModal(null)}
+        >
+          <div
+            style={{
+              background: 'var(--white)', border: '1px solid var(--line)',
+              padding: '40px', maxWidth: '480px', width: '100%',
+              animation: 'db-slideDown 0.28s cubic-bezier(0.22,1,0.36,1) both',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <style>{DB_STYLES}</style>
+            {/* Icon */}
+            <div style={{ width: '48px', height: '48px', border: '1px solid var(--line)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p style={{ fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '8px' }}>Cancel Order</p>
+            <h3 style={{ fontFamily: 'var(--serif)', fontSize: '22px', fontWeight: 400, color: 'var(--ink)', marginBottom: '12px', lineHeight: 1.3 }}>
+              We're sad to see you step away<br />from your ritual.
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.8, marginBottom: '8px' }}>
+              Order <strong style={{ color: 'var(--ink)' }}>#{orderCancelModal.legacy_id || orderCancelModal.id.slice(0, 8).toUpperCase()}</strong> will be marked as cancelled.
+              Any Vedic Points earned on this order will be reversed and your balance adjusted accordingly.
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--ink-4)', marginBottom: '32px' }}>
+              This action cannot be undone. If you have concerns, please reach out to our support team before proceeding.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => handleCancelOrder(orderCancelModal)}
+                disabled={cancellingOrderId === orderCancelModal.id}
+                style={{
+                  flex: '1', background: 'var(--ink)', color: 'var(--white)',
+                  border: '1px solid var(--ink)', padding: '12px 20px',
+                  fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
+                  cursor: cancellingOrderId === orderCancelModal.id ? 'not-allowed' : 'pointer',
+                  opacity: cancellingOrderId === orderCancelModal.id ? 0.6 : 1,
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                {cancellingOrderId === orderCancelModal.id ? 'Cancelling…' : 'Yes, Cancel Order'}
+              </button>
+              <button
+                onClick={() => setOrderCancelModal(null)}
+                style={{
+                  flex: '1', background: 'none', color: 'var(--ink)',
+                  border: '1px solid var(--line)', padding: '12px 20px',
+                  fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
+                  cursor: 'pointer', transition: 'border-color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--ink)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--line)'}
+              >
+                Keep My Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Header />
       <main id="main">
         <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '56px 40px 80px' }}>
@@ -171,6 +327,10 @@ export const DashboardPage = () => {
               {/* Order detail */}
               {selectedItem.type === 'order' && (() => {
                 const o = selectedItem.data;
+                const isCancelledOrder  = o.status === 'cancelled';
+                const isDeliveredOrder  = o.status === 'delivered';
+                const isShippedOrder    = o.status === 'shipped';
+                const canCancelOrder    = !isCancelledOrder && !isDeliveredOrder && !isShippedOrder;
                 return (
                   <div style={{ padding: '28px 24px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
@@ -206,6 +366,24 @@ export const DashboardPage = () => {
                         <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.7 }}>
                           {(() => { const a = o.shipping_address; if (!a) return 'N/A'; if (typeof a === 'object') return `${a.address || ''}, ${a.city || ''}, ${a.state || ''} ${a.zip || ''}`; try { const p = JSON.parse(a); return `${p.address}, ${p.city}, ${p.state} ${p.zip}`; } catch { return String(a); } })()}
                         </p>
+                      </div>
+                    )}
+                    {canCancelOrder && (
+                      <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--line)' }}>
+                        <button
+                          onClick={() => setOrderCancelModal(o)}
+                          disabled={cancellingOrderId === o.id}
+                          style={{
+                            background: 'none', border: '1px solid #fecaca', padding: '8px 20px',
+                            fontSize: '12px', color: '#dc2626',
+                            cursor: cancellingOrderId === o.id ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s', opacity: cancellingOrderId === o.id ? 0.6 : 1,
+                          }}
+                          onMouseEnter={e => { if (cancellingOrderId !== o.id) { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#dc2626'; } }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#fecaca'; }}
+                        >
+                          {cancellingOrderId === o.id ? 'Cancelling…' : 'Cancel Order'}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -354,19 +532,25 @@ export const DashboardPage = () => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
-                        <span>Order</span><span>Date</span><span>Total</span><span>Status</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+                        <span>Order</span><span>Date</span><span>Total</span><span>Status</span><span></span>
                       </div>
-                      {orders.map(o => (
+                      {orders.map(o => {
+                        const isCancelledOrder = o.status === 'cancelled';
+                        const isDeliveredOrder = o.status === 'delivered';
+                        const isShippedOrder   = o.status === 'shipped';
+                        const canCancelOrder   = !isCancelledOrder && !isDeliveredOrder && !isShippedOrder;
+                        return (
                         <div
                           key={o.id}
                           onClick={() => handleSelectItem('order', o)}
                           style={{
-                            display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px', gap: '16px',
-                            padding: '16px 0', borderBottom: '1px solid var(--line)', alignItems: 'center',
+                            display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px',
+                            borderBottom: '1px solid var(--line)', alignItems: 'center',
                             cursor: 'pointer', transition: 'background 0.15s',
                             background: selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent',
                             margin: '0 -12px', padding: '16px 12px',
+                            opacity: isCancelledOrder ? 0.55 : 1,
                           }}
                           onMouseEnter={e => { if (selectedItem?.data?.id !== o.id) e.currentTarget.style.background = 'var(--stone)'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent'; }}
@@ -375,8 +559,28 @@ export const DashboardPage = () => {
                           <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
                           <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
                           <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
+                          <div onClick={e => e.stopPropagation()}>
+                            {canCancelOrder && (
+                              <button
+                                onClick={() => setOrderCancelModal(o)}
+                                disabled={cancellingOrderId === o.id}
+                                style={{
+                                  background: 'none', border: '1px solid var(--line-dk)',
+                                  padding: '5px 10px', fontSize: '11px',
+                                  color: cancellingOrderId === o.id ? 'var(--ink-4)' : '#dc2626',
+                                  cursor: cancellingOrderId === o.id ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                }}
+                                onMouseEnter={e => { if (cancellingOrderId !== o.id) e.currentTarget.style.background = '#fef2f2'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                              >
+                                {cancellingOrderId === o.id ? '...' : 'Cancel'}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </>
@@ -520,7 +724,7 @@ export const DashboardPage = () => {
 /* ═══════════════════════════════════════════════
    VEDIC POINTS PAGE
    ═══════════════════════════════════════════════ */
-const VP_REDEEM_TYPES = ['redeem', 'redemption'];
+const VP_REDEEM_TYPES = ['redeem', 'redemption', 'order_cancelled'];
 
 export const VedicPointsPage = () => {
   const { currentUser, isAuthenticated } = useAuth();

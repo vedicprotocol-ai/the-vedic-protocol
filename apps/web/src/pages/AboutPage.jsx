@@ -1,105 +1,312 @@
-/* ═══════════════════════════════════════════════
-   ABOUT PAGE
-   ═══════════════════════════════════════════════ */
-import React from 'react';
 import { Helmet } from 'react-helmet';
-import Header from '@/components/Header.jsx';
-import Footer from '@/components/Footer.jsx';
+import { Link } from 'react-router-dom';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import useScrollReveal from '@/hooks/useScrollReveal';
 
-export const AboutPage = () => (
-  <>
-    <Helmet>
-      <title>Our Philosophy | The Vedic Protocol</title>
-      <meta name="description" content="The academic and clinical philosophy behind The Vedic Protocol — bridging ancient Ayurvedic wisdom with modern dermatological science. Founded by Dr. Sonam, PhD." />
-      <link rel="canonical" href="https://www.thevedicprotocol.com/about" />
-      <script type="application/ld+json">{JSON.stringify({
-        "@context":"https://schema.org","@type":"AboutPage",
-        "name":"Our Philosophy — The Vedic Protocol",
-        "description":"Clinical Ayurvedic philosophy built on Dravya (substance), Pramana (evidence), and Anukta (adaptation).",
-        "url":"https://www.thevedicprotocol.com/about",
-        "mainEntity":{
-          "@type":"Person","name":"Dr. Sonam",
-          "jobTitle":"Founder & Chief Formulator",
-          "knowsAbout":["Ayurvedic Kayachikitsa","Clinical Skincare","Botanical Extracts","Dermatological Science"]
-        }
-      })}</script>
-    </Helmet>
-    <Header />
-    <main id="main">
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
-      {/* Page Hero */}
-      <div className="page-hero">
-        <p className="page-hero-label">Philosophy</p>
-        <h1>We are not a beauty brand.<br /><em>We are a clinical protocol.</em></h1>
-        <p className="page-hero-sub">Bridging ancient botanical wisdom with modern dermatological science through rigorous academic research.</p>
-      </div>
+const CREDENTIALS = [
+  { abbr: 'BAMS', full: 'Bachelor of Ayurvedic Medicine & Surgery' },
+  { abbr: 'MD', full: 'Post-Graduate, Ayurvedic Medicine' },
+  { abbr: 'PhD', full: 'Ayurvedic Kayachikitsa — Clinical Therapeutics' },
+];
 
-      {/* Founder section */}
-      <section style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '80px 40px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: '80px', alignItems: 'center', borderBottom: '1px solid var(--line)' }} aria-labelledby="founder-about-h2">
-        <div style={{ aspectRatio: '4/5', background: 'var(--stone)', overflow: 'hidden', position: 'relative' }}>
-          <img
-            src="https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/sonam_photo-oY5Rb.jpeg"
-            alt="Dr. Sonam, Founder and Chief Formulator of The Vedic Protocol"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            loading="lazy"
-          />
-        </div>
-        <div>
-          <p className="section-label">The Founder</p>
-          <h2 id="founder-about-h2" className="section-h2" style={{ marginBottom: '24px' }}>Research-driven<br /><em>formulation.</em></h2>
-          <p style={{ fontSize: '14px', color: 'var(--ink-3)', lineHeight: 1.9, marginBottom: '16px' }}>
-            The Vedic Protocol was established by a PhD scholar in Ayurvedic Kayachikitsa. Our foundation is built not on trends, but on peer-reviewed research, classical text translation, and clinical trials.
-          </p>
-          <p style={{ fontSize: '14px', color: 'var(--ink-3)', lineHeight: 1.9, marginBottom: '16px' }}>
-            We approach skincare as a science of barrier optimization. Every ingredient is selected based on its documented phytochemical profile and its proven interaction with human skin physiology.
-          </p>
-          <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--line)' }}>
-            <span style={{ fontFamily: 'var(--serif)', fontSize: '18px', color: 'var(--ink)', fontStyle: 'italic', display: 'block', marginBottom: '4px' }}>Dr. Sonam</span>
-            <span style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>PhD · Ayurvedic Kayachikitsa · Founder & Chief Formulator</span>
+const STANDARDS = [
+  {
+    number: '01',
+    title: 'Food-grade. No exceptions.',
+    body: 'Every active in our formulations — Bhringraj, Amalaki, Wrightia tinctoria, Ashwagandha — is a food. Consumed in Ayurvedic medicine for centuries. Safe enough to ingest. The question we ask before adding anything is simple: would I be comfortable if a patient swallowed this? If the answer is no, it does not go in.',
+  },
+  {
+    number: '02',
+    title: 'Patent-protected science.',
+    body: 'Dr. Sonam has filed 10+ patents across Ayurvedic formulation and therapeutics, including patents in metabolic disease management. Several are already granted. This is not a cosmetics company that added a scientist to its advisory board. The scientist built the company.',
+  },
+  {
+    number: '03',
+    title: 'Built from clinical observation.',
+    body: 'Our formulations are not assembled from published research papers. They are built from what Dr. Sonam observed working — across years of clinical practice, treating patients presenting with the exact conditions our formulations address: hair fall, dandruff, scalp inflammation. We are currently conducting structured observations across 100+ patients to validate performance across different skin and scalp types.',
+  },
+  {
+    number: '04',
+    title: 'Zero synthetics.',
+    body: 'No sulphates. No synthetic preservatives. No petrochemical derivatives. Not because they are trending out of favour — because they have never met our standard. Every formulation decision is governed by the same rule it started with.',
+  },
+];
+
+const DIFFERENTIATORS = [
+  { stat: '10+', label: 'Patents filed' },
+  { stat: 'PhD', label: 'Founded and formulated' },
+  { stat: '100+', label: 'Patients under clinical observation' },
+  { stat: '5000', label: 'Years of Ayurvedic pharmacology' },
+];
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function AboutPage() {
+  useScrollReveal();
+
+  return (
+    <>
+      <Helmet>
+        <title>About — The Vedic Protocol</title>
+        <meta
+          name="description"
+          content="The Vedic Protocol is an engineering brand founded by Dr. Sonam — PhD in Ayurvedic Kayachikitsa, patent holder, and clinical formulator. Food-grade. Zero synthetics. Rooted in the Charaka Samhita."
+        />
+        <link rel="canonical" href="https://thevedicprotocol.com/about" />
+      </Helmet>
+
+      <Header />
+
+      <main>
+
+        {/* ── HERO ──────────────────────────────────────────────────────────── */}
+        <section className="about-hero reveal">
+          <div className="container about-hero__inner">
+            <p className="section-label">Our foundation</p>
+            <h1 className="about-hero__h1">
+              Most beauty brands start<br />
+              with a mood board.<br />
+              <em>We started with a laboratory.</em>
+            </h1>
+            <p className="about-hero__sub">
+              The Vedic Protocol is a formulation-first, engineering-led
+              brand. Every product begins with a clinical question.
+              The answer has to work before it reaches you.
+            </p>
           </div>
-        </div>
-      </section>
+          <div className="about-hero__divider" aria-hidden="true" />
+        </section>
 
-      {/* Three Principles */}
-      <section style={{ background: 'var(--off)', borderBottom: '1px solid var(--line)', padding: '80px 40px' }} aria-labelledby="principles-h2">
-        <div style={{ maxWidth: 'var(--max)', margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '80px', alignItems: 'start' }}>
-            <div style={{ position: 'sticky', top: '88px' }}>
-              <p className="section-label">Clinical Method</p>
-              <h2 id="principles-h2" className="section-h2">The three<br /><em>principles.</em></h2>
+        {/* ── ENGINEERING BRAND STATEMENT ───────────────────────────────────── */}
+        <section className="about-engineering reveal">
+          <div className="container about-engineering__inner">
+            <div className="about-engineering__left">
+              <p className="section-label">Who we are</p>
+              <h2 className="section-h2">
+                An engineering brand.<br />
+                <em>Not a marketing one.</em>
+              </h2>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-              {[
-                { label: 'Dravya', title: 'Substance first.', body: 'A botanical is only as effective as the integrity of its active compounds. We choose the right cultivar, the right harvest season, and the right extraction method for each ingredient — independently verified before it enters a formulation. We utilize advanced extraction technologies like supercritical CO₂ to ensure maximum potency without solvent degradation.' },
-                { label: 'Pramana', title: 'Evidence always.', body: 'Classical texts provide the hypothesis. Clinical trials provide the proof. We do not rely on centuries of use alone — every formulation undergoes rigorous stability testing, microbiological screening, and clinical efficacy trials before launch. Every active is included at its clinically proven effective percentage.' },
-                { label: 'Anukta', title: 'Adapted for now.', body: 'Modern stressors — pollution, blue light, chronic stress — require adapted solutions. We combine traditional Ayurvedic complexes with contemporary clinical actives like ceramides and peptides to create comprehensive barrier support systems for skin as it actually exists today.' },
-              ].map((p, i) => (
-                <div key={p.label} style={{ padding: '48px 0', borderBottom: i < 2 ? '1px solid var(--line)' : 'none' }}>
-                  <p style={{ fontSize: '10px', fontWeight: 500, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ display: 'block', width: '14px', height: '1px', background: 'var(--gold)' }}></span>{p.label}
-                  </p>
-                  <h3 style={{ fontFamily: 'var(--serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)', marginBottom: '12px' }}>{p.title}</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--ink-3)', lineHeight: 1.9 }}>{p.body}</p>
-                </div>
+            <div className="about-engineering__right">
+              <p>
+                The Vedic Protocol was not built around a gap in the market.
+                It was built around a gap in the science — the space between
+                what classical Ayurvedic pharmacology actually prescribes and
+                what the cosmetics industry claims to deliver.
+              </p>
+              <p>
+                We do not run ads to make our products shine. We run clinical
+                observations to make sure they work. We do not have a marketing
+                brief. We have a formulation standard. The difference is everything.
+              </p>
+              <p>
+                Every decision — every active, every ratio, every extraction
+                method — is governed by one question: does it work, and is it
+                safe enough to eat?
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── STATS STRIP ───────────────────────────────────────────────────── */}
+        <section className="about-stats reveal">
+          <div className="container about-stats__grid">
+            {DIFFERENTIATORS.map((d) => (
+              <div key={d.stat} className="about-stats__item">
+                <span className="about-stats__number">{d.stat}</span>
+                <span className="about-stats__label">{d.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── DR. SONAM ─────────────────────────────────────────────────────── */}
+        <section className="about-founder reveal">
+          <div className="container about-founder__inner">
+
+            <div className="about-founder__portrait">
+              <div className="about-founder__monogram" aria-hidden="true">
+                <span>S</span>
+              </div>
+              <div className="about-founder__creds">
+                {CREDENTIALS.map((c) => (
+                  <div key={c.abbr} className="about-founder__cred">
+                    <span className="about-founder__cred-abbr">{c.abbr}</span>
+                    <span className="about-founder__cred-full">{c.full}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="about-founder__copy">
+              <p className="section-label">The founder</p>
+              <h2 className="section-h2">
+                Dr. Sonam.<br />
+                <em>Physician. Formulator. Patent holder.</em>
+              </h2>
+              <p>
+                Dr. Sonam holds a BAMS, MD, and PhD in Ayurvedic
+                Kayachikitsa — the classical branch of Ayurveda concerned
+                with internal medicine and clinical therapeutics. She has
+                spent her career treating patients, not building a brand.
+              </p>
+              <p>
+                That changed when she kept observing the same thing: the
+                formulations described in the Charaka Samhita and Ashtanga
+                Hridayam produced measurable clinical outcomes — but only
+                when made to the correct standard. What the market offered
+                was not that standard.
+              </p>
+              <p>
+                So she built it herself. To date, Dr. Sonam has filed 10+
+                patents across Ayurvedic formulation and therapeutics,
+                including patents in metabolic disease management. Several
+                are already granted. This is not a cosmetics company that
+                added a scientist to its advisory board.
+              </p>
+              <p className="about-founder__emphasis">
+                The scientist built the company.
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ── FOUR STANDARDS ────────────────────────────────────────────────── */}
+        <section className="about-standards reveal">
+          <div className="container">
+            <div className="about-standards__header">
+              <p className="section-label">The standard</p>
+              <h2 className="section-h2">
+                Every formulation is held<br />
+                <em>to the same four rules.</em>
+              </h2>
+            </div>
+            <div className="about-standards__grid">
+              {STANDARDS.map((s) => (
+                <article key={s.number} className="about-standard-card">
+                  <span className="about-standard-card__number">{s.number}</span>
+                  <h3 className="about-standard-card__title">{s.title}</h3>
+                  <p className="about-standard-card__body">{s.body}</p>
+                </article>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Closing statement */}
-      <section style={{ padding: '100px 40px', textAlign: 'center' }}>
-        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <blockquote style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(22px,3.5vw,38px)', fontWeight: 400, color: 'var(--ink)', lineHeight: 1.3, letterSpacing: '-0.01em', fontStyle: 'italic', marginBottom: '32px' }}>
-            "We are not a beauty brand. We are a clinical research protocol dedicated to the optimisation of skin health."
-          </blockquote>
-          <div style={{ width: '40px', height: '1px', background: 'var(--gold)', margin: '0 auto' }}></div>
-        </div>
-      </section>
+        {/* ── FOOD GRADE CALLOUT ────────────────────────────────────────────── */}
+        <section className="about-foodgrade reveal">
+          <div className="container about-foodgrade__inner">
+            <p className="section-label">The formulation rule</p>
+            <h2 className="section-h2">
+              If you cannot eat it,<br />
+              <em>it is not in our formulations.</em>
+            </h2>
+            <p className="about-foodgrade__body">
+              This is not a marketing claim. It is the actual standard every
+              TVP product is held to before it is made. Bhringraj,
+              Amalaki, Ashwagandha, Wrightia tinctoria — these are foods.
+              They have been consumed in Ayurvedic medicine for centuries.
+              No sulphates. No synthetic preservatives. No petrochemical
+              derivatives. Not because they are trending out of favour.
+              Because they have never met this standard.
+            </p>
+          </div>
+        </section>
 
-    </main>
-    <Footer />
-  </>
-);
+        {/* ── RESEARCH ──────────────────────────────────────────────────────── */}
+        <section className="about-research reveal">
+          <div className="container about-research__inner">
+            <div className="about-research__copy">
+              <p className="section-label">The research</p>
+              <h2 className="section-h2">
+                Built from what<br />
+                <em>actually works.</em>
+              </h2>
+              <p>
+                Our formulations are not assembled from published papers.
+                They are built from what Dr. Sonam observed working —
+                across years of clinical practice, treating patients
+                presenting with the exact conditions our formulations
+                address: hair fall, dandruff, scalp inflammation,
+                seborrhoeic patterns.
+              </p>
+              <p>
+                We are currently conducting structured clinical observations
+                across 100+ patients to validate formulation performance
+                across different skin and scalp types. The products you
+                receive are the outcome of that process — not the beginning
+                of it.
+              </p>
+              <Link to="/science" className="btn btn-outline about-research__cta">
+                Explore the Science
+              </Link>
+            </div>
+            <div className="about-research__aside">
+              <blockquote className="about-research__quote">
+                <p>
+                  "The Charaka Samhita prescribed these formulations
+                  for a reason. We spent years finding that reason in
+                  the data."
+                </p>
+                <cite>— Dr. Sonam, Founder & Chief Formulator</cite>
+              </blockquote>
+            </div>
+          </div>
+        </section>
 
-export default AboutPage;
+        {/* ── SOCIAL IMPACT ─────────────────────────────────────────────────── */}
+        <section className="about-impact reveal">
+          <div className="container about-impact__inner">
+            <p className="section-label">Our commitment</p>
+            <h2 className="section-h2">
+              ₹10 from every product.<br />
+              <em>Invested in the next generation.</em>
+            </h2>
+            <p>
+              For every formulation sold, ₹10 goes directly to women's
+              education and underprivileged children. Not a percentage.
+              A fixed, unconditional amount per product — because the
+              number should not depend on how well we are doing
+              commercially. This commitment begins with the first product sold.
+            </p>
+            <Link to="/social-impact" className="btn btn-outline">
+              Learn More
+            </Link>
+          </div>
+        </section>
+
+        {/* ── CLOSING CTA ───────────────────────────────────────────────────── */}
+        <section className="about-closing reveal">
+          <div className="container about-closing__inner">
+            <p className="section-label">The protocol</p>
+            <h2 className="section-h2">
+              Rooted in 5,000 years.<br />
+              <em>Held to a food-grade standard.</em>
+            </h2>
+            <p className="about-closing__body">
+              Patent-protected. Clinically formulated. Founded by a
+              practising physician who treated patients before she
+              launched a brand. That is the only brief we have ever
+              worked from.
+            </p>
+            <div className="about-closing__actions">
+              <Link to="/shop" className="btn btn-dark">
+                Explore the Collection
+              </Link>
+              <Link to="/science" className="btn btn-outline">
+                Explore the Science
+              </Link>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <Footer />
+    </>
+  );
+}

@@ -11,6 +11,20 @@ import Footer from '@/components/Footer.jsx';
 import InfluencerDashboard from '@/components/InfluencerDashboard.jsx';
 import AddressesSidebar from '@/components/AddressesSidebar.jsx';
 
+const VP_DEDUCT_TYPES = ['redeem', 'redemption', 'order_cancelled'];
+
+const fetchVedicPoints = async (userId) => {
+  const { data } = await supabase
+    .from('loyalty_points')
+    .select('points_earned, transaction_type')
+    .eq('customer_id', userId);
+  if (!data) return 0;
+  return Math.max(0, data.reduce((sum, r) => {
+    const pts = r.points_earned ?? 0;
+    return VP_DEDUCT_TYPES.includes(r.transaction_type) ? sum - pts : sum + pts;
+  }, 0));
+};
+
 export const DashboardPage = () => {
   const { currentUser, logout, isInfluencer } = useAuth();
   const [orders, setOrders]           = useState([]);
@@ -22,6 +36,7 @@ export const DashboardPage = () => {
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [orderCancelModal, setOrderCancelModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [vedicPoints, setVedicPoints] = useState(null);
 
   /* ── Responsive breakpoints ── */
   const [windowWidth, setWindowWidth] = useState(
@@ -58,6 +73,12 @@ export const DashboardPage = () => {
     const d = new Date(dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setVedicPoints(currentUser.vedic_points ?? 0);
+    fetchVedicPoints(currentUser.id).then(setVedicPoints);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -123,6 +144,7 @@ export const DashboardPage = () => {
           ? { ...prev, data: { ...prev.data, status: 'cancelled' } }
           : prev
       );
+      fetchVedicPoints(currentUser.id).then(setVedicPoints);
     } catch (err) {
       console.error('Order cancellation failed:', err);
       alert('Failed to cancel order. Please try again or contact support.');
@@ -541,7 +563,7 @@ export const DashboardPage = () => {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                       <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Vedic Points</p>
-                      <p style={{ fontFamily: 'var(--serif)', fontSize: '28px', color: 'var(--gold)', lineHeight: 1 }}>{currentUser?.vedic_points || 0}</p>
+                      <p style={{ fontFamily: 'var(--serif)', fontSize: '28px', color: 'var(--gold)', lineHeight: 1 }}>{vedicPoints ?? currentUser?.vedic_points ?? 0}</p>
                       <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Tier: {currentUser?.tier || 'Bronze'}</p>
                     </div>
                     <Link to="/vedic-points" style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-lt)', borderBottom: '1px solid rgba(201,169,110,0.4)', paddingBottom: '2px', flexShrink: 0 }}>
@@ -551,7 +573,7 @@ export const DashboardPage = () => {
                 ) : (
                   <>
                     <p style={{ fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Vedic Points</p>
-                    <p style={{ fontFamily: 'var(--serif)', fontSize: '40px', color: 'var(--gold)', lineHeight: 1, marginBottom: '8px' }}>{currentUser?.vedic_points || 0}</p>
+                    <p style={{ fontFamily: 'var(--serif)', fontSize: '40px', color: 'var(--gold)', lineHeight: 1, marginBottom: '8px' }}>{vedicPoints ?? currentUser?.vedic_points ?? 0}</p>
                     <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Tier: {currentUser?.tier || 'Bronze'}</p>
                     <Link to="/vedic-points" style={{ display: 'inline-block', marginTop: '16px', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold-lt)', borderBottom: '1px solid rgba(201,169,110,0.4)', paddingBottom: '2px' }}>
                       View Details →

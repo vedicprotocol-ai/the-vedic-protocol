@@ -349,21 +349,22 @@ export const DashboardPage = () => {
                   <div style={{ padding: isMobile ? '20px 16px' : '28px 24px' }}>
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+                      gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)',
                       gap: isMobile ? '16px' : '24px',
                       paddingBottom: '24px',
                       borderBottom: '1px solid var(--line)',
                       marginBottom: '24px',
                     }}>
                       {[
-                        ['Order Number', `#${o.legacy_id || o.id.slice(0, 8).toUpperCase()}`],
-                        ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })],
-                        ['Total', `₹${o.total?.toFixed(0)}`],
-                        ['Status', o.status],
-                      ].map(([label, value]) => (
+                        ['Order Number', `#${o.legacy_id || o.id.slice(0, 8).toUpperCase()}`, false],
+                        ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), false],
+                        ['Total', `₹${o.total?.toFixed(0)}`, false],
+                        ['Vedic Pts Used', o.vedic_points_used > 0 ? `${o.vedic_points_used} pts` : '—', true],
+                        ['Status', o.status, false],
+                      ].map(([label, value, isGold]) => (
                         <div key={label}>
                           <p style={{ fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '6px' }}>{label}</p>
-                          <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)', textTransform: label === 'Status' ? 'capitalize' : 'none' }}>{value}</p>
+                          <p style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: isGold && o.vedic_points_used > 0 ? 'var(--gold)' : 'var(--ink)', textTransform: label === 'Status' ? 'capitalize' : 'none' }}>{value}</p>
                         </div>
                       ))}
                     </div>
@@ -656,10 +657,16 @@ export const DashboardPage = () => {
                               </span>
                             </div>
                             {/* Second row: date + total */}
-                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--ink-3)', marginBottom: canCancelOrder ? '12px' : '0' }}>
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--ink-3)', marginBottom: o.vedic_points_used > 0 || canCancelOrder ? '8px' : '0' }}>
                               <span>{new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                               <span style={{ color: 'var(--ink)', fontWeight: 500 }}>₹{o.total?.toFixed(0)}</span>
                             </div>
+                            {/* Vedic points row */}
+                            {o.vedic_points_used > 0 && (
+                              <div style={{ fontSize: '11px', color: 'var(--gold)', marginBottom: canCancelOrder ? '8px' : '0' }}>
+                                {o.vedic_points_used} Vedic Points used
+                              </div>
+                            )}
                             {/* Cancel button */}
                             {canCancelOrder && (
                               <div onClick={e => e.stopPropagation()}>
@@ -685,8 +692,8 @@ export const DashboardPage = () => {
                   ) : (
                     /* ── DESKTOP: Order table ── */
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
-                        <span>Order</span><span>Date</span><span>Total</span><span>Status</span><span></span>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 120px 100px 80px', gap: '16px', padding: '12px 0', borderBottom: '1px solid var(--line)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+                        <span>Order</span><span>Date</span><span>Total</span><span>Vedic Pts Used</span><span>Status</span><span></span>
                       </div>
                       {orders.map(o => {
                         const isCancelledOrder = o.status === 'cancelled';
@@ -698,7 +705,7 @@ export const DashboardPage = () => {
                             key={o.id}
                             onClick={() => handleSelectItem('order', o)}
                             style={{
-                              display: 'grid', gridTemplateColumns: '1fr 140px 120px 100px 80px', gap: '16px',
+                              display: 'grid', gridTemplateColumns: '1fr 140px 120px 120px 100px 80px', gap: '16px',
                               borderBottom: '1px solid var(--line)', alignItems: 'center',
                               cursor: 'pointer', transition: 'background 0.15s',
                               background: selectedItem?.data?.id === o.id ? 'var(--off)' : 'transparent',
@@ -711,6 +718,9 @@ export const DashboardPage = () => {
                             <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.legacy_id || o.id.slice(0, 8).toUpperCase()}</span>
                             <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
                             <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
+                            <span style={{ fontSize: '13px', color: o.vedic_points_used > 0 ? 'var(--gold)' : 'var(--ink-4)' }}>
+                              {o.vedic_points_used > 0 ? `${o.vedic_points_used} pts` : '—'}
+                            </span>
                             <span className={`status ${statuses[o.status] || 'status-pending'}`}>{o.status}</span>
                             <div onClick={e => e.stopPropagation()}>
                               {canCancelOrder && (

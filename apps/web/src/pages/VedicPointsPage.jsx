@@ -7,6 +7,17 @@ import Footer from '@/components/Footer.jsx';
 
 const REDEEM_TYPES = ['redeem', 'redemption'];
 
+const getActivityLabel = (type) => {
+  switch (type) {
+    case 'purchase':       return 'Points Earned';
+    case 'redeem':
+    case 'redemption':     return 'Points Redeemed';
+    case 'order_restore':  return 'Points Restored';
+    case 'order_cancelled': return 'Points Reversed';
+    default: return type ? type.charAt(0).toUpperCase() + type.slice(1) : '—';
+  }
+};
+
 const VedicPointsPage = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const [balance, setBalance] = useState(0);
@@ -94,9 +105,7 @@ const VedicPointsPage = () => {
                     {history.map(record => {
                       const isDebit = REDEEM_TYPES.includes(record.transaction_type);
                       const pts = Math.abs(record.points_earned ?? 0);
-                      const label = record.transaction_type
-                        ? record.transaction_type.charAt(0).toUpperCase() + record.transaction_type.slice(1)
-                        : '—';
+                      const label = getActivityLabel(record.transaction_type);
                       return (
                         <div key={record.id} className="p-4 flex justify-between items-center">
                           <div>

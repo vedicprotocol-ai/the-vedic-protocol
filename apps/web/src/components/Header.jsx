@@ -275,6 +275,8 @@ const Header = () => {
             background: 'var(--cream)',
             display: 'flex', flexDirection: 'column',
             padding: '80px 32px 120px',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
           }}
           role="dialog"
           aria-modal="true"

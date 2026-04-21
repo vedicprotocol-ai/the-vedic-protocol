@@ -26,6 +26,7 @@ export default function AdminInfluencersPage() {
     customer_email: '',
     influencer_code: '',
     discount_percentage: 10,
+    commission_percent: 0,
     expires_at: '',
     status: 'active'
   });
@@ -68,6 +69,7 @@ export default function AdminInfluencersPage() {
         customer_email: influencer.customer?.email || '',
         influencer_code: influencer.influencer_code || '',
         discount_percentage: influencer.coupon?.discount_value || 10,
+        commission_percent: influencer.commission_percent ?? 10,
         expires_at: influencer.coupon?.valid_until ? influencer.coupon.valid_until.split('T')[0] : '',
         status: influencer.status || 'active'
       });
@@ -77,6 +79,7 @@ export default function AdminInfluencersPage() {
         customer_email: '',
         influencer_code: '',
         discount_percentage: 10,
+        commission_percent: 0,
         expires_at: '',
         status: 'active'
       });
@@ -106,9 +109,8 @@ export default function AdminInfluencersPage() {
           user_id: customer.id,
           customer_id: customer.id,
           influencer_code: formData.influencer_code,
+          commission_percent: Number(formData.commission_percent),
           status: formData.status,
-          total_earnings: 0,
-          vedic_points: 0,
         }).select().single();
         if (infErr) throw infErr;
 
@@ -124,6 +126,7 @@ export default function AdminInfluencersPage() {
       } else {
         await supabase.from('influencers').update({
           influencer_code: formData.influencer_code,
+          commission_percent: Number(formData.commission_percent),
           status: formData.status,
         }).eq('id', editingId);
 
@@ -222,7 +225,9 @@ export default function AdminInfluencersPage() {
                   <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Email</TableHead>
                   <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Coupon Code</TableHead>
                   <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Discount</TableHead>
+                  <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Commission</TableHead>
                   <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Validity</TableHead>
+                  <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Earnings</TableHead>
                   <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider">Status</TableHead>
                   <TableHead className="font-medium text-gray-500 uppercase text-xs tracking-wider text-right">Actions</TableHead>
                 </TableRow>
@@ -230,13 +235,13 @@ export default function AdminInfluencersPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-12 text-gray-500">
                       Loading influencers...
                     </TableCell>
                   </TableRow>
                 ) : filteredInfluencers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-12 text-gray-500">
                       No influencers found.
                     </TableCell>
                   </TableRow>
@@ -257,10 +262,16 @@ export default function AdminInfluencersPage() {
                       <TableCell className="text-gray-600">
                         {inf.coupon?.discount_value ? `${inf.coupon.discount_value}%` : 'N/A'}
                       </TableCell>
+                      <TableCell className="text-gray-600">
+                        {inf.commission_percent != null ? `${inf.commission_percent}%` : 'N/A'}
+                      </TableCell>
                       <TableCell className="text-gray-600 text-sm">
                         {inf.coupon?.valid_until
                           ? new Date(inf.coupon.valid_until).toLocaleDateString()
                           : 'No Expiry'}
+                      </TableCell>
+                      <TableCell className="text-gray-600 text-sm">
+                        ₹{Number(inf.total_earnings ?? 0).toFixed(2)}
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${inf.status === 'active'
@@ -349,20 +360,33 @@ export default function AdminInfluencersPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="status" className="text-xs uppercase tracking-wider text-gray-500">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(val) => setFormData({ ...formData, status: val })}
-                >
-                  <SelectTrigger className="rounded-none border-gray-300 focus:ring-gray-400">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none border-gray-200">
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="commission" className="text-xs uppercase tracking-wider text-gray-500">Commission %</Label>
+                <Input
+                  id="commission"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.commission_percent}
+                  onChange={(e) => setFormData({ ...formData, commission_percent: e.target.value })}
+                  className="rounded-none border-gray-300 focus-visible:ring-gray-400"
+                />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="status" className="text-xs uppercase tracking-wider text-gray-500">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(val) => setFormData({ ...formData, status: val })}
+              >
+                <SelectTrigger className="rounded-none border-gray-300 focus:ring-gray-400">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none border-gray-200">
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">

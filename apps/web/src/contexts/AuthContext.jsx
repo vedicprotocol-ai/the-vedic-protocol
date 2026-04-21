@@ -14,6 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [isInfluencer, setIsInfluencer] = useState(false);
 
   // Monotonically-increasing counter to discard stale concurrent loadProfile calls.
   // Without this, a slow first call can overwrite a faster second call's result.
@@ -265,6 +266,18 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  // Check influencer status whenever the logged-in user changes
+  useEffect(() => {
+    if (!currentUser?.id) { setIsInfluencer(false); return; }
+    supabase
+      .from('influencers')
+      .select('id')
+      .or(`customer_id.eq.${currentUser.id},user_id.eq.${currentUser.id}`)
+      .eq('status', 'active')
+      .maybeSingle()
+      .then(({ data }) => setIsInfluencer(!!data));
+  }, [currentUser?.id]);
+
   const getIsAdmin = () => {
     return currentUser?.role?.toLowerCase() === 'admin';
   };
@@ -280,6 +293,7 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     isAuthenticated: !!currentUser,
     isAdmin: getIsAdmin(),
+    isInfluencer,
     canOrder,
     login,
     signup,

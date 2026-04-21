@@ -38,6 +38,8 @@ export const CheckoutPage = () => {
   const [couponError, setCouponError] = useState('');
   const [couponSuccess, setCouponSuccess] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -60,6 +62,38 @@ export const CheckoutPage = () => {
     };
     fetchAddresses();
   }, [currentUser?.id]);
+
+  useEffect(() => {
+    const fetchAvailableCoupons = async () => {
+      const now = new Date().toISOString();
+      const { data } = await supabase
+        .from('coupons')
+        .select('id, code, discount_type, discount_value, valid_until, usage_limit, usage_count, description, min_order_amount')
+        .eq('status', 'active')
+        .is('influencer_id', null)
+        .or(`valid_from.is.null,valid_from.lte.${now}`)
+        .or(`valid_until.is.null,valid_until.gte.${now}`)
+        .order('discount_value', { ascending: false });
+      if (data) {
+        const filtered = data.filter(c =>
+          c.usage_limit === null || c.usage_count < c.usage_limit
+        );
+        setAvailableCoupons(filtered);
+      }
+    };
+    fetchAvailableCoupons();
+  }, []);
+
+  const handleSelectAvailableCoupon = (coupon) => {
+    setCouponCode(coupon.code);
+    setAppliedCoupon(coupon);
+    const discLabel = coupon.discount_type === 'percent'
+      ? `${coupon.discount_value}% off`
+      : `₹${coupon.discount_value} off`;
+    setCouponSuccess(`Coupon applied — ${discLabel} on your order!`);
+    setCouponError('');
+    setShowAvailableCoupons(false);
+  };
 
   const handleSelectAddress = (addr) => {
     setSelectedAddressId(addr.id);
@@ -498,6 +532,54 @@ export const CheckoutPage = () => {
                         )}
                         {couponSuccess && (
                           <p style={{ fontSize: '12px', color: '#15803d', marginTop: '8px' }}>{couponSuccess}</p>
+                        )}
+
+                        {availableCoupons.length > 0 && (
+                          <div style={{ marginTop: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setShowAvailableCoupons(v => !v)}
+                              style={{ fontSize: '12px', color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', letterSpacing: '0.02em' }}
+                            >
+                              {showAvailableCoupons ? 'Hide coupons' : `${availableCoupons.length} coupon${availableCoupons.length > 1 ? 's' : ''} available`}
+                            </button>
+
+                            {showAvailableCoupons && (
+                              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {availableCoupons.map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => handleSelectAvailableCoupon(c)}
+                                    style={{
+                                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                      padding: '10px 12px', border: '1px dashed var(--line-dk)',
+                                      background: 'var(--off)', cursor: 'pointer', textAlign: 'left', width: '100%',
+                                    }}
+                                  >
+                                    <div>
+                                      <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', fontFamily: 'monospace', color: 'var(--ink)' }}>
+                                        {c.code}
+                                      </span>
+                                      {c.description && (
+                                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--ink-3)', marginTop: '2px' }}>
+                                          {c.description}
+                                        </span>
+                                      )}
+                                      {c.min_order_amount > 0 && (
+                                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--ink-4)', marginTop: '1px' }}>
+                                          Min. order ₹{c.min_order_amount}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gold)', flexShrink: 0, marginLeft: '12px' }}>
+                                      {c.discount_type === 'percent' ? `${c.discount_value}% off` : `₹${c.discount_value} off`}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </>
                     )}

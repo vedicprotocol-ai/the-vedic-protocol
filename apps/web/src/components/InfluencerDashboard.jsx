@@ -8,81 +8,88 @@ const InfluencerDashboard = ({ currentUser }) => {
   const [usageRecords, setUsageRecords] = useState([]);
   const [stats, setStats] = useState({
     totalEarnings: 0,
+    commissionPct: 0,
     uniqueCustomers: 0,
     totalPurchases: 0,
-    avgEarning: 0
+    avgOrderValue: 0,
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== 'influencer') {
-      setLoading(false);
-      return;
-    }
-    
+    if (!currentUser) { setLoading(false); return; }
+
     const fetchDashboardData = async () => {
-      console.log('[InfluencerDashboard] Mounted. Current User ID:', currentUser.id);
       setLoading(true);
       setError('');
 
       try {
-        // 1. Fetch Influencer Record
-        const { data: influencer, error: infErr } = await supabase.from('influencers')
-          .select('*').eq('user_id', currentUser.id).single();
+        // 1. Fetch influencer record — match by customer_id or user_id
+        const { data: influencer, error: infErr } = await supabase
+          .from('influencers')
+          .select('*')
+          .or(`customer_id.eq.${currentUser.id},user_id.eq.${currentUser.id}`)
+          .maybeSingle();
 
-        if (infErr || !influencer) {
-          setError('Influencer profile not found');
+        if (infErr) throw infErr;
+        if (!influencer) {
+          // User is not an influencer — render nothing
           setLoading(false);
           return;
         }
         setInfluencerData(influencer);
 
-        // 2. Fetch Linked Coupons
-        let activeCoupon = null;
-        const { data: couponsList } = await supabase.from('coupons').select('*')
-          .eq('influencer_id', influencer.id).limit(50);
+        // 2. Fetch linked coupon
+        const { data: couponsList } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('influencer_id', influencer.id)
+          .limit(10);
 
-        if (couponsList && couponsList.length > 0) {
-          activeCoupon = couponsList[0];
-          setCouponData(activeCoupon);
-        }
+        const activeCoupon = couponsList?.[0] || null;
+        setCouponData(activeCoupon);
 
-        // 3. Fetch Usage Records — resolve nested filter via sequential queries
-        try {
-          const couponIds = (couponsList ?? []).map(c => c.id);
-          let records = [];
-          if (couponIds.length > 0) {
-            const { data: usageData } = await supabase.from('coupon_usage')
-              .select('*, customer:customer_id(*)')
-              .in('coupon_id', couponIds)
-              .order('created', { ascending: false });
-            records = usageData ?? [];
-          }
-          setUsageRecords(records);
+        // 3. Fetch orders where coupon_code matches the influencer_code
+        const code = influencer.influencer_code;
+        const commissionPct = influencer.commission_percent ?? 0;
+        if (code) {
+          const { data: ordersData, error: ordersErr } = await supabase
+            .from('orders')
+            .select('id, customer_id, total, shipping, discount, coupon_code, created, status, customer:customer_id(name, email)')
+            .eq('coupon_code', code)
+            .order('created', { ascending: false });
 
-          // 4. Calculate Stats
-          const totalEarnings = records.reduce((sum, record) => {
-            return sum + (record.commission_amount || 0);
-          }, 0);
-          
-          const uniqueCustomerIds = new Set(records.map(r => r.customer_id));
-          const uniqueCustomers = uniqueCustomerIds.size;
-          const totalPurchases = records.length;
-          const avgEarning = uniqueCustomers > 0 ? totalEarnings / uniqueCustomers : 0;
+          if (ordersErr) throw ordersErr;
+
+          const orders = (ordersData ?? []).map(o => {
+            const orderValue = (o.total || 0) - (o.shipping || 0);
+            const commission = orderValue * commissionPct / 100;
+            return { ...o, orderValue, commission };
+          });
+          setUsageRecords(orders);
+
+          const totalOrderValue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+          const totalCommission = orders.reduce((sum, o) => sum + o.commission, 0);
+          const uniqueCustomerIds = new Set(orders.map(o => o.customer_id).filter(Boolean));
 
           setStats({
-            totalEarnings,
-            uniqueCustomers,
-            totalPurchases,
-            avgEarning
+            totalEarnings: totalCommission,
+            commissionPct,
+            uniqueCustomers: uniqueCustomerIds.size,
+            totalPurchases: orders.length,
+            avgOrderValue: orders.length > 0 ? totalOrderValue / orders.length : 0,
           });
-        } catch (err) {
-          setError(`Failed to fetch coupon usage: ${err.message}`);
+        } else {
+          setStats({
+            totalEarnings: 0,
+            commissionPct,
+            uniqueCustomers: 0,
+            totalPurchases: 0,
+            avgOrderValue: 0,
+          });
         }
-
       } catch (err) {
         setError(`An unexpected error occurred: ${err.message}`);
       } finally {
@@ -96,7 +103,6 @@ const InfluencerDashboard = ({ currentUser }) => {
   const handleCopy = () => {
     const codeToCopy = couponData?.code || influencerData?.influencer_code;
     if (!codeToCopy) return;
-    
     navigator.clipboard.writeText(codeToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -105,14 +111,11 @@ const InfluencerDashboard = ({ currentUser }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+    const diffDays = Math.floor(Math.abs(now - date) / (1000 * 60 * 60 * 24));
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
-    
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   if (loading) {
@@ -139,6 +142,7 @@ const InfluencerDashboard = ({ currentUser }) => {
     );
   }
 
+  // Not an influencer — render nothing
   if (!influencerData) return null;
 
   const displayCode = couponData?.code || influencerData.influencer_code;
@@ -156,7 +160,7 @@ const InfluencerDashboard = ({ currentUser }) => {
 
       {/* Top Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        
+
         {/* Coupon Code Card */}
         <div className="bg-white border border-[#e5e5e5] rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between w-full">
           <div>
@@ -164,25 +168,27 @@ const InfluencerDashboard = ({ currentUser }) => {
               <Activity size={16} />
               <span className="text-xs uppercase tracking-wider font-medium">Active Code</span>
             </div>
-            {couponData ? (
+            {displayCode ? (
               <>
                 <p className="font-serif text-2xl sm:text-3xl text-[var(--ink)] mb-1 tracking-[0.02em] break-all">
                   {displayCode}
                 </p>
-                <p className="text-xs sm:text-sm text-[#8c8c8c] mb-5 sm:mb-6">
-                  {couponData.discount_value}% discount for your audience
-                </p>
+                {couponData && (
+                  <p className="text-xs sm:text-sm text-[#8c8c8c] mb-5 sm:mb-6">
+                    {couponData.discount_value}% discount for your audience
+                  </p>
+                )}
               </>
             ) : (
               <div className="mb-5 sm:mb-6">
-                <p className="text-sm font-medium text-[#595959] mb-1">No coupons created yet</p>
+                <p className="text-sm font-medium text-[#595959] mb-1">No code assigned yet</p>
                 <p className="text-xs text-[#8c8c8c]">Contact support to generate your custom discount code.</p>
               </div>
             )}
           </div>
-          <button 
+          <button
             onClick={handleCopy}
-            disabled={!couponData && !influencerData?.influencer_code}
+            disabled={!displayCode}
             className="w-full min-h-[44px] py-2.5 px-4 rounded-lg border border-[#e5e5e5] bg-[#fafafa] hover:bg-[#f0f0f0] text-sm font-medium text-[#1a1a1a] transition-colors flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {copied ? <><Check size={16} className="text-green-600" /> Copied!</> : <><Copy size={16} /> Copy Code</>}
@@ -198,12 +204,14 @@ const InfluencerDashboard = ({ currentUser }) => {
               <span className="text-xs uppercase tracking-wider font-medium">Total Earnings</span>
             </div>
             <p className="font-serif text-4xl sm:text-5xl text-[#D4AF37] leading-none">
-              ${stats.totalEarnings.toFixed(2)}
+              ₹{Number(stats.totalEarnings).toFixed(2)}
             </p>
           </div>
           <div className="mt-5 sm:mt-6 flex items-center justify-between text-xs text-white/50 border-t border-white/10 pt-4">
-            <span>Available for payout</span>
-            <span className="text-[#D4AF37] font-medium">{couponData?.influencer_earning_percentage || 0}% Commission</span>
+            <span>Lifetime earnings from referrals</span>
+            {stats.commissionPct > 0 && (
+              <span className="text-[#D4AF37]/70">{stats.commissionPct}% commission</span>
+            )}
           </div>
         </div>
 
@@ -213,7 +221,7 @@ const InfluencerDashboard = ({ currentUser }) => {
             <ShoppingBag size={16} />
             <span className="text-xs uppercase tracking-wider font-medium">Performance</span>
           </div>
-          
+
           <div className="space-y-3 sm:space-y-4 flex-grow flex flex-col justify-center">
             <div className="flex justify-between items-end">
               <span className="text-sm text-[#595959]">Total Customers</span>
@@ -226,8 +234,8 @@ const InfluencerDashboard = ({ currentUser }) => {
             </div>
             <div className="w-full h-px bg-[#f0f0f0]"></div>
             <div className="flex justify-between items-end">
-              <span className="text-sm text-[#595959]">Avg. Earning / Customer</span>
-              <span className="font-serif text-xl sm:text-2xl text-[#D4AF37]">${stats.avgEarning.toFixed(2)}</span>
+              <span className="text-sm text-[#595959]">Avg. Order Value</span>
+              <span className="font-serif text-xl sm:text-2xl text-[#D4AF37]">₹{stats.avgOrderValue.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -242,20 +250,20 @@ const InfluencerDashboard = ({ currentUser }) => {
             <p className="text-xs sm:text-sm text-[#8c8c8c] mt-1">Purchases made using your influencer code</p>
           </div>
           <div className="text-xs font-medium text-[#595959] bg-[#fafafa] px-3 py-1.5 rounded-md border border-[#e5e5e5] self-start sm:self-auto">
-            {usageRecords.length} {usageRecords.length === 1 ? 'Record' : 'Records'}
+            {usageRecords.length} {usageRecords.length === 1 ? 'Order' : 'Orders'}
           </div>
         </div>
-        
+
         {usageRecords.length === 0 ? (
           <div className="p-8 sm:p-12 text-center bg-[#fafafa]">
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border border-[#e5e5e5] flex items-center justify-center mx-auto mb-4 shadow-sm">
               <Users size={24} className="text-[#bfbfbf]" />
             </div>
             <p className="font-serif text-lg sm:text-xl text-[var(--ink)] mb-2">
-              No customer usage yet
+              No referrals yet
             </p>
             <p className="text-xs sm:text-sm text-[#8c8c8c] max-w-sm mx-auto leading-relaxed">
-              When customers use your code at checkout, their purchases and your earned commissions will appear here.
+              When customers use your code at checkout, their purchases will appear here.
             </p>
           </div>
         ) : (
@@ -263,10 +271,10 @@ const InfluencerDashboard = ({ currentUser }) => {
             {/* Mobile Card View (< 640px) */}
             <div className="flex flex-col gap-3 p-4 sm:hidden bg-[#fafafa]">
               {usageRecords.map((record) => {
-                const customerName = record.expand?.customer_id?.name || 'Anonymous Customer';
-                const purchaseAmount = record.purchase_amount || 0;
-                const discountAmount = record.discount_amount || (purchaseAmount * ((couponData?.discount_percentage || 0) / 100));
-                const earningAmount = record.influencer_earning || (purchaseAmount * ((couponData?.influencer_earning_percentage || 0) / 100));
+                const customerName = record.customer?.name || 'Anonymous Customer';
+                const purchaseAmount = record.total || 0;
+                const discountAmount = record.discount || 0;
+                const commission = record.commission || 0;
 
                 return (
                   <div key={record.id} className="bg-white p-4 rounded-xl border border-[#e5e5e5] shadow-sm flex flex-col gap-3">
@@ -279,20 +287,25 @@ const InfluencerDashboard = ({ currentUser }) => {
                       </div>
                       <span className="text-xs text-[#595959] whitespace-nowrap">{formatDate(record.created)}</span>
                     </div>
-                    
+
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-[#8c8c8c]">Purchase Amount</span>
-                      <span className="text-sm font-medium text-[#1a1a1a]">${purchaseAmount.toFixed(2)}</span>
+                      <span className="text-xs text-[#8c8c8c]">Order Total</span>
+                      <span className="text-sm font-medium text-[#1a1a1a]">₹{purchaseAmount.toFixed(0)}</span>
                     </div>
-                    
+
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-[#8c8c8c]">Discount Applied</span>
-                      <span className="text-sm text-[#8c8c8c]">${discountAmount.toFixed(2)}</span>
+                      <span className="text-sm text-[#8c8c8c]">₹{discountAmount.toFixed(0)}</span>
                     </div>
-                    
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-[#8c8c8c]">Your Commission</span>
+                      <span className="text-sm font-medium text-[#D4AF37]">₹{commission.toFixed(2)}</span>
+                    </div>
+
                     <div className="flex justify-between items-center pt-2 border-t border-[#f0f0f0]">
-                      <span className="text-xs font-medium text-[#1a1a1a]">Your Earning</span>
-                      <span className="text-sm font-serif font-medium text-[#D4AF37]">+${earningAmount.toFixed(2)}</span>
+                      <span className="text-xs font-medium text-[#1a1a1a]">Status</span>
+                      <span className="text-xs capitalize text-[#595959]">{record.status}</span>
                     </div>
                   </div>
                 );
@@ -306,17 +319,18 @@ const InfluencerDashboard = ({ currentUser }) => {
                   <tr className="border-b border-[#e5e5e5] bg-[#fafafa]">
                     <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c]">Customer</th>
                     <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c]">Date</th>
-                    <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Purchase Amount</th>
+                    <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Order Total</th>
                     <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Discount Applied</th>
-                    <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#D4AF37] text-right">Your Earning</th>
+                    <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Your Commission</th>
+                    <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f0f0f0]">
                   {usageRecords.map((record) => {
-                    const customerName = record.expand?.customer_id?.name || 'Anonymous Customer';
-                    const purchaseAmount = record.purchase_amount || 0;
-                    const discountAmount = record.discount_amount || (purchaseAmount * ((couponData?.discount_percentage || 0) / 100));
-                    const earningAmount = record.influencer_earning || (purchaseAmount * ((couponData?.influencer_earning_percentage || 0) / 100));
+                    const customerName = record.customer?.name || 'Anonymous Customer';
+                    const purchaseAmount = record.total || 0;
+                    const discountAmount = record.discount || 0;
+                    const commission = record.commission || 0;
 
                     return (
                       <tr key={record.id} className="hover:bg-[#fafafa] transition-colors duration-150">
@@ -325,20 +339,30 @@ const InfluencerDashboard = ({ currentUser }) => {
                             <div className="w-8 h-8 rounded-full bg-[#f0f0f0] text-[#595959] flex items-center justify-center text-xs font-medium border border-[#e5e5e5]">
                               {customerName.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm font-medium text-[#1a1a1a]">{customerName}</span>
+                            <div>
+                              <p className="text-sm font-medium text-[#1a1a1a]">{customerName}</p>
+                              {record.customer?.email && (
+                                <p className="text-xs text-[#8c8c8c]">{record.customer.email}</p>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="py-4 px-6 text-sm text-[#595959]">
                           {formatDate(record.created)}
                         </td>
                         <td className="py-4 px-6 text-sm text-[#1a1a1a] text-right font-medium">
-                          ${purchaseAmount.toFixed(2)}
+                          ₹{purchaseAmount.toFixed(0)}
                         </td>
                         <td className="py-4 px-6 text-sm text-[#8c8c8c] text-right">
-                          ${discountAmount.toFixed(2)}
+                          ₹{discountAmount.toFixed(0)}
                         </td>
-                        <td className="py-4 px-6 text-sm font-serif text-[#D4AF37] text-right font-medium">
-                          +${earningAmount.toFixed(2)}
+                        <td className="py-4 px-6 text-sm text-right font-medium text-[#D4AF37]">
+                          ₹{commission.toFixed(2)}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <span className="text-xs capitalize px-2 py-1 rounded bg-[#f0f0f0] text-[#595959]">
+                            {record.status}
+                          </span>
                         </td>
                       </tr>
                     );

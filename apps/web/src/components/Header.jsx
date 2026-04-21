@@ -148,7 +148,7 @@ const Header = () => {
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '4px',
-                    color: (isActive('/admin/doctors') || isActive('/admin/blog') || isActive('/admin/influencers') || isActive('/admin/products')) ? 'var(--ink)' : undefined,
+                    color: (isActive('/admin/doctors') || isActive('/admin/blog') || isActive('/admin/influencers') || isActive('/admin/products') || isActive('/admin/coupons')) ? 'var(--ink)' : undefined,
                   }}
                   aria-haspopup="true"
                   aria-expanded={adminDropdownOpen}
@@ -171,6 +171,7 @@ const Header = () => {
                       ['/admin/blog',        'Manage Blog'],
                       ['/admin/influencers', 'Manage Influencers'],
                       ['/admin/products',    'Manage Products'],
+                      ['/admin/coupons',     'Manage Coupons'],
                     ].map(([path, label]) => (
                       <Link
                         key={path}
@@ -307,6 +308,7 @@ const Header = () => {
                 ['/admin/doctors',     'Admin — Doctors'],
                 ['/admin/blog',        'Admin — Blog'],
                 ['/admin/influencers', 'Admin — Influencers'],
+                ['/admin/coupons',     'Admin — Coupons'],
               ] : []),
             ].map(([path, label]) => (
               <Link

@@ -31,6 +31,7 @@ import DoctorDiscoveryPage from './pages/DoctorDiscoveryPage.jsx';
 import AdminDoctorsPage from './pages/AdminDoctorsPage.jsx';
 import AdminInfluencersPage from './pages/AdminInfluencersPage.jsx';
 import AdminProductsPage from './pages/AdminProductsPage.jsx';
+import AdminCouponsPage from './pages/AdminCouponsPage.jsx';
 import TermsPage from './pages/TermsPage.jsx';
 import PrivacyPage from './pages/PrivacyPage.jsx';
 // import InfluencerPortalPage from './pages/InfluencerPortalPage.jsx';
@@ -99,6 +100,9 @@ function App() {
             } />
             <Route path="/admin/products" element={
               <ProtectedAdminRoute><AdminProductsPage /></ProtectedAdminRoute>
+            } />
+            <Route path="/admin/coupons" element={
+              <ProtectedAdminRoute><AdminCouponsPage /></ProtectedAdminRoute>
             } />
           </Routes>
           <Toaster />

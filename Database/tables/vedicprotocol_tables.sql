@@ -123,6 +123,7 @@ CREATE TABLE public.coupons (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     legacy_id text,
     code text NOT NULL,
+    description text,
     influencer_id uuid,
     discount_type text DEFAULT 'percent'::text,
     discount_value numeric DEFAULT 0,
@@ -131,6 +132,7 @@ CREATE TABLE public.coupons (
     valid_from timestamp with time zone,
     valid_until timestamp with time zone,
     status text DEFAULT 'active'::text,
+    min_order_amount numeric,
     created timestamp with time zone DEFAULT now(),
     updated timestamp with time zone DEFAULT now()
 );

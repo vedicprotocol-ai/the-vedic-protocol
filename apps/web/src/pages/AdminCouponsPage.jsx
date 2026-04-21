@@ -50,7 +50,7 @@ export default function AdminCouponsPage() {
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created', { ascending: false });
       if (error) throw error;
       setCoupons(data ?? []);
     } catch (err) {

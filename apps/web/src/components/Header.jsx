@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
@@ -72,6 +72,7 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
+  const adminDropdownTimer = useRef(null);
 
   /* Frosted glass on scroll */
   useEffect(() => {
@@ -140,8 +141,13 @@ const Header = () => {
               <div
                 className="nav-admin-dropdown"
                 style={{ position: 'relative' }}
-                onMouseEnter={() => setAdminDropdownOpen(true)}
-                onMouseLeave={() => setAdminDropdownOpen(false)}
+                onMouseEnter={() => {
+                  clearTimeout(adminDropdownTimer.current);
+                  setAdminDropdownOpen(true);
+                }}
+                onMouseLeave={() => {
+                  adminDropdownTimer.current = setTimeout(() => setAdminDropdownOpen(false), 150);
+                }}
               >
                 <button
                   className="nav-link"

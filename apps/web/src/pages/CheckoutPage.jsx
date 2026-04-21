@@ -330,6 +330,12 @@ export const CheckoutPage = () => {
         const deducted = Math.min(pointsToUse, pointsAvailable);
         const newBalance = Math.max(0, pointsAvailable - deducted);
         await supabase.from('customers').update({ vedic_points: newBalance }).eq('id', currentUser.id);
+        await supabase.from('loyalty_points').insert({
+          customer_id: currentUser.id,
+          points_earned: deducted,
+          transaction_type: 'redemption',
+          order_id: order.id,
+        });
       }
 
       // Points earned = (amount paid for products) / 4   [4 pts = ₹1]

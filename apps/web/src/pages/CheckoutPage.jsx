@@ -74,24 +74,55 @@ export const CheckoutPage = () => {
         .or(`valid_from.is.null,valid_from.lte.${now}`)
         .or(`valid_until.is.null,valid_until.gte.${now}`)
         .order('discount_value', { ascending: false });
-      if (data) {
-        const filtered = data.filter(c =>
-          c.usage_limit === null || c.usage_count < c.usage_limit
-        );
-        setAvailableCoupons(filtered);
+      if (!data) return;
+
+      // Filter out globally exhausted coupons
+      const globallyValid = data.filter(c =>
+        c.usage_limit === null || c.usage_count < c.usage_limit
+      );
+
+      // Build per-customer usage map if user is logged in
+      let userCouponCounts = {};
+      if (currentUser?.id) {
+        const { data: userOrders } = await supabase
+          .from('orders')
+          .select('coupon_code')
+          .eq('customer_id', currentUser.id)
+          .not('coupon_code', 'is', null);
+        (userOrders || []).forEach(o => {
+          if (o.coupon_code) userCouponCounts[o.coupon_code] = (userCouponCounts[o.coupon_code] || 0) + 1;
+        });
       }
+
+      const filtered = globallyValid.filter(c =>
+        c.usage_limit === null || (userCouponCounts[c.code] || 0) < c.usage_limit
+      );
+      setAvailableCoupons(filtered);
     };
     fetchAvailableCoupons();
-  }, []);
+  }, [currentUser?.id]);
 
-  const handleSelectAvailableCoupon = (coupon) => {
+  const handleSelectAvailableCoupon = async (coupon) => {
+    setCouponError('');
+    setCouponSuccess('');
+    if (coupon.usage_limit !== null && currentUser?.id) {
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('customer_id', currentUser.id)
+        .eq('coupon_code', coupon.code);
+      if (count >= coupon.usage_limit) {
+        setCouponError('You have already used this coupon the maximum number of times.');
+        setShowAvailableCoupons(false);
+        return;
+      }
+    }
     setCouponCode(coupon.code);
     setAppliedCoupon(coupon);
     const discLabel = coupon.discount_type === 'percent'
       ? `${coupon.discount_value}% off`
       : `₹${coupon.discount_value} off`;
     setCouponSuccess(`Coupon applied — ${discLabel} on your order!`);
-    setCouponError('');
     setShowAvailableCoupons(false);
   };
 
@@ -163,6 +194,18 @@ export const CheckoutPage = () => {
       }
       if (data.usage_limit !== null && data.usage_count >= data.usage_limit) {
         setCouponError('This coupon has reached its usage limit.'); return;
+      }
+
+      // Per-customer usage check
+      if (data.usage_limit !== null && currentUser?.id) {
+        const { count } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('customer_id', currentUser.id)
+          .eq('coupon_code', data.code);
+        if (count >= data.usage_limit) {
+          setCouponError('You have already used this coupon the maximum number of times.'); return;
+        }
       }
 
       setAppliedCoupon(data);

@@ -58,7 +58,7 @@ const VedicPointsPage = () => {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
           <div className="bg-card p-8 rounded-md border border-border text-center">
             <h3 className="font-serif text-xl mb-2">01. Earn</h3>
-            <p className="text-sm text-foreground/70">Accumulate 10 Vedic Points for every ₹1 invested in your protocol.</p>
+            <p className="text-sm text-foreground/70">Accumulate 4 Vedic Points for every ₹1 invested in your protocol.</p>
           </div>
           <div className="bg-card p-8 rounded-md border border-border text-center">
             <h3 className="font-serif text-xl mb-2">02. Accumulate</h3>
@@ -111,7 +111,7 @@ const VedicPointsPage = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className={`font-medium text-sm ${isDebit ? 'text-red-500' : 'text-green-600'}`}>
+                            <span className={`font-medium text-sm ${isDebit ? 'text-red-500' : 'text-foreground'}`}>
                               {isDebit ? '−' : '+'}{pts} pts
                             </span>
                             <p className="text-xs text-foreground/50">₹{(pts / 4).toFixed(2)}</p>
@@ -133,7 +133,7 @@ const VedicPointsPage = () => {
             <h2 className="text-2xl font-serif mb-4">Join the Protocol</h2>
             <p className="text-foreground/70 mb-8">Create an account to start earning Vedic Points.</p>
             <div className="flex justify-center gap-4">
-              <a href="/signup" className="bg-foreground text-background px-6 py-3 rounded-md text-sm uppercase tracking-wider hover:bg-primary clinical-transition">
+              <a href="/signup" className="bg-foreground text-background px-6 py-3 rounded-md text-sm uppercase tracking-wider hover:opacity-80 clinical-transition">
                 Create Account
               </a>
               <a href="/login" className="border border-border px-6 py-3 rounded-md text-sm uppercase tracking-wider hover:bg-card clinical-transition">

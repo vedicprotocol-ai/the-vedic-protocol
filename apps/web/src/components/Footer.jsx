@@ -206,13 +206,16 @@ const Footer = () => {
             <nav aria-label="Community">
               <div className="foot-col-title">Community</div>
               <ul className="foot-links">
-                <li><Link to="/influencer">Influencer Portal</Link></li>
                 <li><Link to="/vedic-points">Vedic Points</Link></li>
-                <li><Link to="/dashboard">My Account</Link></li>
                 <li><Link to="/contact">Contact Us</Link></li>
                 <li>
                   <a href="https://www.instagram.com/thevedicprotocol" target="_blank" rel="noopener noreferrer">
                     Instagram
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/share/1LPdYQNbhb/" target="_blank" rel="noopener noreferrer">
+                    Facebook
                   </a>
                 </li>
               </ul>

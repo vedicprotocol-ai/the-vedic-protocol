@@ -34,6 +34,8 @@ import AdminProductsPage from './pages/AdminProductsPage.jsx';
 import AdminCouponsPage from './pages/AdminCouponsPage.jsx';
 import TermsPage from './pages/TermsPage.jsx';
 import PrivacyPage from './pages/PrivacyPage.jsx';
+import ReturnsPage from './pages/ReturnsPage.jsx';
+import CookiePolicyPage from './pages/CookiePolicyPage.jsx';
 // import InfluencerPortalPage from './pages/InfluencerPortalPage.jsx';
 
 /* ─── Scroll reveal wired at router level so it re-runs on navigation ─── */
@@ -70,6 +72,8 @@ function App() {
             {/* Legal */}
             <Route path="/terms"   element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/returns" element={<ReturnsPage />} />
+            <Route path="/cookies" element={<CookiePolicyPage />} />
 
             {/* Auth */}
             <Route path="/login"            element={<LoginPage />} />

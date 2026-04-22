@@ -13,7 +13,7 @@ import AddressForm from '@/components/AddressForm.jsx';
 
 export const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { currentUser, canOrder } = useAuth();
+  const { currentUser, canOrder, refreshProfile } = useAuth();
   const { cartItems, getCartTotal, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -356,6 +356,7 @@ export const CheckoutPage = () => {
       }
 
       clearCart();
+      await refreshProfile();
       navigate(`/order-confirmation/${order.id}`, { state: { order, pointsEarned: pts } });
     } catch (e) {
       setError(e.message || 'Checkout failed. Please try again.');

@@ -320,6 +320,13 @@ export const AuthProvider = ({ children }) => {
       .then(({ data }) => setIsInfluencer(!!data));
   }, [currentUser?.id]);
 
+  // Re-fetch the customer profile from Supabase and update currentUser in place.
+  // Call this after any operation that mutates the customers row (e.g. points update).
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) await loadProfile(session.user);
+  };
+
   const getIsAdmin = () => {
     return currentUser?.role?.toLowerCase() === 'admin';
   };
@@ -340,6 +347,7 @@ export const AuthProvider = ({ children }) => {
     login,
     signup,
     logout,
+    refreshProfile,
     initialLoading,
   };
 

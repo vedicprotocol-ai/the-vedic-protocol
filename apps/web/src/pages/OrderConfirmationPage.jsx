@@ -79,7 +79,7 @@ const OrderConfirmationPage = () => {
   return (
     <>
       <Helmet>
-        <title>{`Order Confirmation - ${order.order_number} - The Vedic Protocol`}</title>
+        <title>{`Order Confirmation - ${order.id?.slice(0, 8).toUpperCase()} - The Vedic Protocol`}</title>
         <meta name="description" content="Your order has been confirmed. Thank you for choosing The Vedic Protocol." />
       </Helmet>
 
@@ -118,11 +118,11 @@ const OrderConfirmationPage = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-[#f2ead8]/70 font-light">Order Number</span>
-                      <span className="text-[#f2ead8] font-medium">{order.order_number}</span>
+                      <span className="text-[#f2ead8] font-medium">#{order.id?.slice(0, 8).toUpperCase()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#f2ead8]/70 font-light">Order Date</span>
-                      <span className="text-[#f2ead8]">{new Date(order.created_at).toLocaleDateString()}</span>
+                      <span className="text-[#f2ead8]">{new Date(order.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#f2ead8]/70 font-light">Status</span>
@@ -175,7 +175,7 @@ const OrderConfirmationPage = () => {
                       <p className="text-[#f2ead8] font-medium">{item.name}</p>
                       <p className="text-[#f2ead8]/70 font-light text-sm">Quantity: {item.quantity}</p>
                     </div>
-                    <p className="text-[#b8962e] font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="text-[#b8962e] font-medium">₹{(item.price * item.quantity).toFixed(0)}</p>
                   </div>
                 ))}
               </div>
@@ -183,15 +183,15 @@ const OrderConfirmationPage = () => {
               <div className="border-t border-[#b8962e]/20 mt-6 pt-6 space-y-2">
                 <div className="flex justify-between text-[#f2ead8]/70 font-light">
                   <span>Subtotal</span>
-                  <span>${order.subtotal?.toFixed(2)}</span>
+                  <span>₹{order.subtotal?.toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between text-[#f2ead8]/70 font-light">
                   <span>Tax</span>
-                  <span>${order.tax?.toFixed(2)}</span>
+                  <span>₹{order.tax?.toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between text-2xl font-serif text-[#f2ead8] pt-2">
                   <span>Total</span>
-                  <span className="text-[#b8962e]">${order.total?.toFixed(2)}</span>
+                  <span className="text-[#b8962e]">₹{order.total?.toFixed(0)}</span>
                 </div>
               </div>
             </motion.div>

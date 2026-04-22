@@ -8,6 +8,7 @@ import ProtectedRoute from '@/components/ProtectedRoute.jsx';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute.jsx';
 import useScrollReveal from '@/hooks/useScrollReveal.js';
 import IntroSplash from '@/components/IntroSplash.jsx';
+import WhatsAppWidget from '@/components/WhatsAppWidget.jsx';
 
 /* ─── Existing pages ─── */
 import HomePage from './pages/HomePage.jsx';
@@ -114,6 +115,7 @@ function App() {
             } />
           </Routes>
           <Toaster />
+          <WhatsAppWidget />
         </CartProvider>
       </AuthProvider>
     </Router>

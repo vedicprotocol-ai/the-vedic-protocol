@@ -451,7 +451,7 @@ function CountryCombobox({ value, onChange, disabled, error }) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start">
         <Command>
           <CommandInput placeholder="Search country..." />
           <CommandList>
@@ -618,6 +618,17 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
   return (
     <form onSubmit={handleSubmit} className="space-y-4 py-4">
       <div className="space-y-2">
+        <Label>Country *</Label>
+        <CountryCombobox
+          value={formData.countryCode}
+          onChange={handleCountryChange}
+          disabled={busy}
+          error={errors.countryCode}
+        />
+        {errors.countryCode && <p className="text-xs text-red-500">{errors.countryCode}</p>}
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="address">Street Address *</Label>
         <Input
           id="address"
@@ -658,31 +669,19 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="zip">ZIP / Postal Code *</Label>
-          <Input
-            id="zip"
-            name="zip"
-            required
-            value={formData.zip}
-            onChange={handleChange}
-            placeholder="400001"
-            disabled={busy}
-            className={errors.zip ? 'border-red-500' : ''}
-          />
-          {errors.zip && <p className="text-xs text-red-500">{errors.zip}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label>Country *</Label>
-          <CountryCombobox
-            value={formData.countryCode}
-            onChange={handleCountryChange}
-            disabled={busy}
-            error={errors.countryCode}
-          />
-          {errors.countryCode && <p className="text-xs text-red-500">{errors.countryCode}</p>}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="zip">ZIP / Postal Code *</Label>
+        <Input
+          id="zip"
+          name="zip"
+          required
+          value={formData.zip}
+          onChange={handleChange}
+          placeholder="400001"
+          disabled={busy}
+          className={errors.zip ? 'border-red-500' : ''}
+        />
+        {errors.zip && <p className="text-xs text-red-500">{errors.zip}</p>}
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t">

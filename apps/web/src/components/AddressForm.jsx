@@ -456,16 +456,16 @@ function CountryCombobox({ value, onChange, disabled, error }) {
         align="start"
         sideOffset={4}
         className={cn(
-          'z-[500] w-[--radix-popover-trigger-width] p-0 rounded-md border bg-popover text-popover-foreground shadow-md outline-none',
+          'z-[500] w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 rounded-md border bg-white text-gray-900 shadow-md outline-none',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
         )}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <Command>
+        <Command className="bg-white">
           <CommandInput placeholder="Search country..." />
-          <CommandList>
+          <CommandList className="max-h-48 overflow-y-auto">
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
               {COUNTRIES.map((country) => (
@@ -503,7 +503,7 @@ function StateField({ countryCode, value, onChange, disabled, error }) {
         <SelectTrigger className={cn('h-9', error && 'border-red-500')}>
           <SelectValue placeholder="Select state..." />
         </SelectTrigger>
-        <SelectContent className="z-[500]">
+        <SelectContent className="z-[500] bg-white text-gray-900 max-h-48 overflow-y-auto max-w-[calc(100vw-2rem)]">
           {states.map((s) => (
             <SelectItem key={s} value={s}>
               {s}

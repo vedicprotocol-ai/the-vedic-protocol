@@ -72,7 +72,7 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
-  const adminDropdownTimer = useRef(null);
+  const adminDropdownRef = useRef(null);
 
   /* Frosted glass on scroll */
   useEffect(() => {
@@ -85,6 +85,17 @@ const Header = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  /* Close admin dropdown on outside click */
+  useEffect(() => {
+    const handler = (e) => {
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(e.target)) {
+        setAdminDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const scrollToWaitlist = () => {
     const el = document.getElementById('wl-email');
@@ -140,17 +151,12 @@ const Header = () => {
             {isAdmin && (
               <div
                 className="nav-admin-dropdown"
+                ref={adminDropdownRef}
                 style={{ position: 'relative' }}
-                onMouseEnter={() => {
-                  clearTimeout(adminDropdownTimer.current);
-                  setAdminDropdownOpen(true);
-                }}
-                onMouseLeave={() => {
-                  adminDropdownTimer.current = setTimeout(() => setAdminDropdownOpen(false), 150);
-                }}
               >
                 <button
                   className="nav-link"
+                  onClick={() => setAdminDropdownOpen(o => !o)}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '4px',

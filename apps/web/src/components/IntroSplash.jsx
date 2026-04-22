@@ -4,7 +4,7 @@ export default function IntroSplash() {
   const [phase, setPhase] = useState('idle');
 
   useEffect(() => {
-    const hasSeen = sessionStorage.getItem('hasSeenIntro');
+    const hasSeen = localStorage.getItem('hasSeenIntro');
     if (hasSeen) {
       setPhase('gone');
       return;
@@ -21,7 +21,7 @@ export default function IntroSplash() {
     const goneTimer = setTimeout(() => {
       setPhase('gone');
       document.body.style.overflow = '';
-      sessionStorage.setItem('hasSeenIntro', 'true');
+      localStorage.setItem('hasSeenIntro', 'true');
     }, 3350); // 2600ms visible + 750ms fade out
 
     return () => {

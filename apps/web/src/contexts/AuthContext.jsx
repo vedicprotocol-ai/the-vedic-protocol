@@ -252,7 +252,12 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Wipe all browser storage so nothing is left behind.
-    try { localStorage.clear(); } catch (_) {}
+    // Preserve hasSeenIntro so the intro splash never replays after logout.
+    try {
+      const hasSeenIntro = localStorage.getItem('hasSeenIntro');
+      localStorage.clear();
+      if (hasSeenIntro) localStorage.setItem('hasSeenIntro', hasSeenIntro);
+    } catch (_) {}
     try { sessionStorage.clear(); } catch (_) {}
 
     // Clear all cookies for this origin.

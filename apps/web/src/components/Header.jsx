@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
@@ -36,11 +36,6 @@ const IconShop = () => (
     <path d="M16 10a4 4 0 0 1-8 0" />
   </svg>
 );
-const IconScience = () => (
-  <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.4" viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
-  </svg>
-);
 const IconDoctors = () => (
   <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.4" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /><path d="M12 12v6m-3-3h6" strokeLinecap="round" strokeLinejoin="round" />
@@ -71,8 +66,6 @@ const Header = () => {
 
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
-  const adminDropdownRef = useRef(null);
 
   /* Frosted glass on scroll */
   useEffect(() => {
@@ -85,17 +78,6 @@ const Header = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
-
-  /* Close admin dropdown on outside click */
-  useEffect(() => {
-    const handler = (e) => {
-      if (adminDropdownRef.current && !adminDropdownRef.current.contains(e.target)) {
-        setAdminDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const scrollToWaitlist = () => {
     const el = document.getElementById('wl-email');
@@ -149,64 +131,9 @@ const Header = () => {
               Talk to Doctors
             </Link>
             {isAdmin && (
-              <div
-                className="nav-admin-dropdown"
-                ref={adminDropdownRef}
-                style={{ position: 'relative' }}
-              >
-                <button
-                  className="nav-link"
-                  onClick={() => setAdminDropdownOpen(o => !o)}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '4px',
-                    color: (isActive('/admin/doctors') || isActive('/admin/blog') || isActive('/admin/influencers') || isActive('/admin/products') || isActive('/admin/coupons')) ? 'var(--ink)' : undefined,
-                  }}
-                  aria-haspopup="true"
-                  aria-expanded={adminDropdownOpen}
-                >
-                  Admin
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.5, marginTop: '1px' }}>
-                    <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-                {adminDropdownOpen && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0,
-                    background: 'var(--white)', border: '1px solid var(--line)',
-                    minWidth: '170px', zIndex: 100,
-                    boxShadow: '0 8px 24px -4px rgba(0,0,0,0.12)',
-                    paddingTop: '4px', paddingBottom: '4px',
-                  }}>
-                    {[
-                      ['/admin/doctors',     'Manage Doctors'],
-                      ['/admin/blog',        'Manage Blog'],
-                      ['/admin/influencers', 'Manage Influencers'],
-                      ['/admin/products',    'Manage Products'],
-                      ['/admin/coupons',     'Manage Coupons'],
-                    ].map(([path, label]) => (
-                      <Link
-                        key={path}
-                        to={path}
-                        style={{
-                          display: 'block',
-                          padding: '10px 16px',
-                          fontSize: '12px',
-                          letterSpacing: '0.04em',
-                          color: isActive(path) ? 'var(--gold)' : 'var(--ink)',
-                          background: isActive(path) ? 'var(--off)' : 'transparent',
-                          transition: 'background 0.15s',
-                          whiteSpace: 'nowrap',
-                        }}
-                        onMouseEnter={e => { if (!isActive(path)) e.currentTarget.style.background = 'var(--off)'; }}
-                        onMouseLeave={e => { if (!isActive(path)) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        {label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <Link to="/admin" className="nav-link" aria-current={isActive('/admin') ? 'page' : undefined}>
+                Admin
+              </Link>
             )}
           </div>
 
@@ -318,12 +245,7 @@ const Header = () => {
               ['/doctors', 'Consultation'],
               ['/social-impact', 'Social Impact'],
               ['/contact', 'Contact'],
-              ...(isAdmin ? [
-                ['/admin/doctors',     'Admin — Doctors'],
-                ['/admin/blog',        'Admin — Blog'],
-                ['/admin/influencers', 'Admin — Influencers'],
-                ['/admin/coupons',     'Admin — Coupons'],
-              ] : []),
+              ...(isAdmin ? [['/admin', 'Admin Dashboard']] : []),
             ].map(([path, label]) => (
               <Link
                 key={path}
@@ -403,15 +325,29 @@ const Header = () => {
           <span>Doctors</span>
         </Link>
 
-        <Link
-          to="/blog"
-          className={`bottom-nav-item${isActive('/blog') ? ' active' : ''}`}
-          aria-label="Journal"
-          aria-current={isActive('/blog') ? 'page' : undefined}
-        >
-          <IconJournal />
-          <span>Journal</span>
-        </Link>
+        {isAdmin ? (
+          <Link
+            to="/admin"
+            className={`bottom-nav-item${isActive('/admin') ? ' active' : ''}`}
+            aria-label="Admin"
+            aria-current={isActive('/admin') ? 'page' : undefined}
+          >
+            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.4" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span>Admin</span>
+          </Link>
+        ) : (
+          <Link
+            to="/blog"
+            className={`bottom-nav-item${isActive('/blog') ? ' active' : ''}`}
+            aria-label="Journal"
+            aria-current={isActive('/blog') ? 'page' : undefined}
+          >
+            <IconJournal />
+            <span>Journal</span>
+          </Link>
+        )}
 
         <Link
           to={isAuthenticated ? '/dashboard' : '/login'}

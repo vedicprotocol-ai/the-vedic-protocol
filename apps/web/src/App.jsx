@@ -32,6 +32,7 @@ import AdminDoctorsPage from './pages/AdminDoctorsPage.jsx';
 import AdminInfluencersPage from './pages/AdminInfluencersPage.jsx';
 import AdminProductsPage from './pages/AdminProductsPage.jsx';
 import AdminCouponsPage from './pages/AdminCouponsPage.jsx';
+import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
 import TermsPage from './pages/TermsPage.jsx';
 import PrivacyPage from './pages/PrivacyPage.jsx';
 import ReturnsPage from './pages/ReturnsPage.jsx';
@@ -96,6 +97,9 @@ function App() {
             } />
             
             {/* Admin Protected */}
+            <Route path="/admin" element={
+              <ProtectedAdminRoute><AdminDashboardPage /></ProtectedAdminRoute>
+            } />
             <Route path="/admin/doctors" element={
               <ProtectedAdminRoute><AdminDoctorsPage /></ProtectedAdminRoute>
             } />

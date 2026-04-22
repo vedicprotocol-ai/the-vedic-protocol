@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import supabase from '@/lib/supabaseClient.js';
@@ -31,7 +31,67 @@ export default function AdminInfluencersPage() {
     status: 'active'
   });
 
+  const [selectedEarningsId, setSelectedEarningsId] = useState('');
+  const [earningsData, setEarningsData] = useState(null);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+
   const { toast } = useToast();
+
+  const fetchEarnings = async (influencerId) => {
+    if (!influencerId) { setEarningsData(null); return; }
+    setEarningsLoading(true);
+    try {
+      const { data: inf } = await supabase.from('influencers').select('*').eq('id', influencerId).single();
+      const { data: couponsList } = await supabase.from('coupons').select('*').eq('influencer_id', influencerId).limit(10);
+      const coupon = couponsList?.[0] || null;
+      const code = inf?.influencer_code;
+      const commissionPct = inf?.commission_percent ?? 0;
+
+      let orders = [];
+      if (code) {
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select('id, customer_id, total, shipping, discount, coupon_code, created, status, customer:customer_id(name, email)')
+          .eq('coupon_code', code)
+          .order('created', { ascending: false });
+
+        orders = (ordersData ?? []).map(o => {
+          const orderValue = (o.total || 0) - (o.shipping || 0);
+          return { ...o, orderValue, commission: orderValue * commissionPct / 100 };
+        });
+      }
+
+      const totalOrderValue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+      const totalCommission = orders.reduce((sum, o) => sum + o.commission, 0);
+      const uniqueCustomers = new Set(orders.map(o => o.customer_id).filter(Boolean)).size;
+
+      setEarningsData({
+        influencer: inf,
+        coupon,
+        orders,
+        stats: {
+          totalEarnings: totalCommission,
+          commissionPct,
+          uniqueCustomers,
+          totalPurchases: orders.length,
+          avgOrderValue: orders.length > 0 ? totalOrderValue / orders.length : 0,
+        },
+      });
+    } catch (err) {
+      console.error('Earnings fetch error:', err);
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
+
+  const formatEarningsDate = (dateString) => {
+    const date = new Date(dateString);
+    const diffDays = Math.floor(Math.abs(new Date() - date) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   const fetchInfluencers = async () => {
     setLoading(true);
@@ -308,6 +368,225 @@ export default function AdminInfluencersPage() {
             </Table>
           </div>
         </div>
+        {/* ── Earnings Viewer ── */}
+        <div className="mb-12">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div>
+              <p className="text-xs font-medium tracking-widest uppercase text-amber-700 mb-1">Earnings Viewer</p>
+              <h2 className="text-2xl font-serif text-gray-900">View Influencer Earnings</h2>
+            </div>
+            <div className="w-full sm:w-72">
+              <Select
+                value={selectedEarningsId}
+                onValueChange={(val) => { setSelectedEarningsId(val); fetchEarnings(val); }}
+              >
+                <SelectTrigger className="rounded-none border-gray-300 focus:ring-gray-400">
+                  <SelectValue placeholder="Select an influencer..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-none border-gray-200">
+                  {influencers.map(inf => (
+                    <SelectItem key={inf.id} value={inf.id}>
+                      {inf.customer?.name || inf.customer?.email || inf.influencer_code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {earningsLoading && (
+            <div className="animate-pulse">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                {[1,2,3].map(i => <div key={i} className="h-36 bg-stone-200 rounded-2xl" />)}
+              </div>
+              <div className="h-64 bg-stone-200 rounded-2xl" />
+            </div>
+          )}
+
+          {!earningsLoading && earningsData && (() => {
+            const { influencer, coupon, orders, stats } = earningsData;
+            const displayCode = coupon?.code || influencer?.influencer_code;
+
+            return (
+              <div>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6">
+
+                  {/* Active Code */}
+                  <div className="bg-white border border-[#e5e5e5] rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 text-[#8c8c8c]">
+                        <Activity size={16} />
+                        <span className="text-xs uppercase tracking-wider font-medium">Active Code</span>
+                      </div>
+                      {displayCode ? (
+                        <>
+                          <p className="font-serif text-2xl sm:text-3xl text-[var(--ink)] mb-1 tracking-[0.02em] break-all">{displayCode}</p>
+                          {coupon && (
+                            <p className="text-xs sm:text-sm text-[#8c8c8c]">{coupon.discount_value}% discount for audience</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-[#595959]">No code assigned</p>
+                      )}
+                    </div>
+                    <div className="mt-4 text-xs text-[#8c8c8c] border-t border-[#f0f0f0] pt-3">
+                      Status: <span className={`font-medium ${influencer?.status === 'active' ? 'text-green-600' : 'text-gray-500'}`}>{influencer?.status || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  {/* Total Earnings */}
+                  <div className="bg-[#1a1a1a] rounded-2xl p-5 sm:p-6 shadow-lg flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37] opacity-10 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none" />
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 text-white/60">
+                        <TrendingUp size={16} />
+                        <span className="text-xs uppercase tracking-wider font-medium">Total Earnings</span>
+                      </div>
+                      <p className="font-serif text-4xl sm:text-5xl text-[#D4AF37] leading-none">
+                        ₹{Number(stats.totalEarnings).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="mt-5 flex items-center justify-between text-xs text-white/50 border-t border-white/10 pt-4">
+                      <span>Lifetime earnings from referrals</span>
+                      {stats.commissionPct > 0 && (
+                        <span className="text-[#D4AF37]/70">{stats.commissionPct}% commission</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Performance */}
+                  <div className="bg-white border border-[#e5e5e5] rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-5 text-[#8c8c8c]">
+                      <ShoppingBag size={16} />
+                      <span className="text-xs uppercase tracking-wider font-medium">Performance</span>
+                    </div>
+                    <div className="space-y-3 flex-grow flex flex-col justify-center">
+                      <div className="flex justify-between items-end">
+                        <span className="text-sm text-[#595959]">Total Customers</span>
+                        <span className="font-serif text-xl text-[#1a1a1a]">{stats.uniqueCustomers}</span>
+                      </div>
+                      <div className="w-full h-px bg-[#f0f0f0]" />
+                      <div className="flex justify-between items-end">
+                        <span className="text-sm text-[#595959]">Total Purchases</span>
+                        <span className="font-serif text-xl text-[#1a1a1a]">{stats.totalPurchases}</span>
+                      </div>
+                      <div className="w-full h-px bg-[#f0f0f0]" />
+                      <div className="flex justify-between items-end">
+                        <span className="text-sm text-[#595959]">Avg. Order Value</span>
+                        <span className="font-serif text-xl text-[#D4AF37]">₹{stats.avgOrderValue.toFixed(0)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Recent Referrals Table */}
+                <div className="bg-white border border-[#e5e5e5] rounded-2xl shadow-sm overflow-hidden">
+                  <div className="p-4 sm:p-6 border-b border-[#e5e5e5] flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
+                    <div>
+                      <h3 className="font-serif text-xl sm:text-2xl text-gray-900">Recent Referrals</h3>
+                      <p className="text-xs sm:text-sm text-[#8c8c8c] mt-1">Purchases made using this influencer's code</p>
+                    </div>
+                    <div className="text-xs font-medium text-[#595959] bg-[#fafafa] px-3 py-1.5 rounded-md border border-[#e5e5e5] self-start sm:self-auto">
+                      {orders.length} {orders.length === 1 ? 'Order' : 'Orders'}
+                    </div>
+                  </div>
+
+                  {orders.length === 0 ? (
+                    <div className="p-10 text-center bg-[#fafafa]">
+                      <div className="w-14 h-14 rounded-full bg-white border border-[#e5e5e5] flex items-center justify-center mx-auto mb-4 shadow-sm">
+                        <Users size={24} className="text-[#bfbfbf]" />
+                      </div>
+                      <p className="font-serif text-lg text-gray-900 mb-2">No referrals yet</p>
+                      <p className="text-sm text-[#8c8c8c]">No orders have been placed using this influencer's code.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Mobile cards */}
+                      <div className="flex flex-col gap-3 p-4 sm:hidden bg-[#fafafa]">
+                        {orders.map(record => {
+                          const customerName = record.customer?.name || 'Anonymous Customer';
+                          return (
+                            <div key={record.id} className="bg-white p-4 rounded-xl border border-[#e5e5e5] shadow-sm flex flex-col gap-3">
+                              <div className="flex justify-between items-center border-b border-[#f0f0f0] pb-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-[#f0f0f0] text-[#595959] flex items-center justify-center text-xs font-medium border border-[#e5e5e5]">
+                                    {customerName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-sm font-medium text-[#1a1a1a] truncate max-w-[120px]">{customerName}</span>
+                                </div>
+                                <span className="text-xs text-[#595959] whitespace-nowrap">{formatEarningsDate(record.created)}</span>
+                              </div>
+                              <div className="flex justify-between"><span className="text-xs text-[#8c8c8c]">Order Total</span><span className="text-sm font-medium text-[#1a1a1a]">₹{(record.total || 0).toFixed(0)}</span></div>
+                              <div className="flex justify-between"><span className="text-xs text-[#8c8c8c]">Discount Applied</span><span className="text-sm text-[#8c8c8c]">₹{(record.discount || 0).toFixed(0)}</span></div>
+                              <div className="flex justify-between"><span className="text-xs text-[#8c8c8c]">Commission</span><span className="text-sm font-medium text-[#D4AF37]">₹{record.commission.toFixed(2)}</span></div>
+                              <div className="flex justify-between pt-2 border-t border-[#f0f0f0]">
+                                <span className="text-xs font-medium text-[#1a1a1a]">Status</span>
+                                <span className="text-xs capitalize text-[#595959]">{record.status}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Desktop table */}
+                      <div className="w-full overflow-x-auto hidden sm:block">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-[#e5e5e5] bg-[#fafafa]">
+                              <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c]">Customer</th>
+                              <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c]">Date</th>
+                              <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Order Total</th>
+                              <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Discount Applied</th>
+                              <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Commission</th>
+                              <th className="py-4 px-6 text-[10px] uppercase tracking-wider font-semibold text-[#8c8c8c] text-right">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#f0f0f0]">
+                            {orders.map(record => {
+                              const customerName = record.customer?.name || 'Anonymous Customer';
+                              return (
+                                <tr key={record.id} className="hover:bg-[#fafafa] transition-colors duration-150">
+                                  <td className="py-4 px-6">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-[#f0f0f0] text-[#595959] flex items-center justify-center text-xs font-medium border border-[#e5e5e5]">
+                                        {customerName.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium text-[#1a1a1a]">{customerName}</p>
+                                        {record.customer?.email && <p className="text-xs text-[#8c8c8c]">{record.customer.email}</p>}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-4 px-6 text-sm text-[#595959]">{formatEarningsDate(record.created)}</td>
+                                  <td className="py-4 px-6 text-sm text-[#1a1a1a] text-right font-medium">₹{(record.total || 0).toFixed(0)}</td>
+                                  <td className="py-4 px-6 text-sm text-[#8c8c8c] text-right">₹{(record.discount || 0).toFixed(0)}</td>
+                                  <td className="py-4 px-6 text-sm text-right font-medium text-[#D4AF37]">₹{record.commission.toFixed(2)}</td>
+                                  <td className="py-4 px-6 text-right">
+                                    <span className="text-xs capitalize px-2 py-1 rounded bg-[#f0f0f0] text-[#595959]">{record.status}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {!earningsLoading && !earningsData && selectedEarningsId === '' && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center text-gray-400">
+              <Users size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Select an influencer above to view their earnings.</p>
+            </div>
+          )}
+        </div>
+
       </main>
 
       <Footer />

@@ -53,12 +53,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Restore session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      loadProfile(session?.user ?? null).finally(() => setInitialLoading(false));
-    });
-
-    // Listen for auth state changes
+    // onAuthStateChange fires INITIAL_SESSION immediately on registration with
+    // the current session — this replaces the separate getSession() call that
+    // previously raced against INITIAL_SESSION, causing a higher-seq timeout
+    // fallback to overwrite a successful profile load (losing the admin role).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
       if (event === 'SIGNED_IN' && user) {
@@ -81,6 +79,10 @@ export const AuthProvider = ({ children }) => {
       }
       // Await so that the sequence counter correctly guards against concurrent calls
       await loadProfile(user);
+      // Release the loading gate only after the initial session is fully resolved
+      if (event === 'INITIAL_SESSION') {
+        setInitialLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

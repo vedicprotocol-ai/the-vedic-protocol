@@ -28,7 +28,7 @@ export const CheckoutPage = () => {
   const [savingAddress, setSavingAddress] = useState(false);
 
   // Vedic Points
-  const pointsAvailable = currentUser?.vedic_points || 0;
+  const [pointsAvailable, setPointsAvailable] = useState(currentUser?.vedic_points || 0);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToUse, setPointsToUse] = useState(0);
 
@@ -40,6 +40,23 @@ export const CheckoutPage = () => {
   const [couponLoading, setCouponLoading] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const VP_DEDUCT_TYPES = ['redeem', 'redemption', 'order_cancelled'];
+    supabase
+      .from('loyalty_points')
+      .select('points_earned, transaction_type')
+      .eq('customer_id', currentUser.id)
+      .then(({ data }) => {
+        if (!data) return;
+        const computed = Math.max(0, data.reduce((sum, r) => {
+          const pts = r.points_earned ?? 0;
+          return VP_DEDUCT_TYPES.includes(r.transaction_type) ? sum - pts : sum + pts;
+        }, 0));
+        setPointsAvailable(computed);
+      });
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser?.id) return;

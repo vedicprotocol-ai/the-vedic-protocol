@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const PHONE = '919997639995';
+const PHONE = '447760538040';
 const DEFAULT_MESSAGE = 'Hello! I have a question about The Vedic Protocol.';
 
 export default function WhatsAppWidget() {
@@ -23,7 +23,7 @@ export default function WhatsAppWidget() {
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+    <div className="whatsapp-widget" style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
       {/* Chat box */}
       {open && (
         <div style={{

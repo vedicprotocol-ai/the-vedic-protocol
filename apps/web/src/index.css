@@ -1262,6 +1262,11 @@ select {
 
 @media (max-width: 768px) {
 
+  /* Lift WhatsApp widget above the bottom nav bar */
+  .whatsapp-widget {
+    bottom: calc(var(--bottom-bar-h) + env(safe-area-inset-bottom) + 12px) !important;
+  }
+
   /* Show bottom nav, hide top nav CTA on mobile */
   .bottom-nav {
     display: flex;

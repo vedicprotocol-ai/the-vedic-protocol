@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, ChevronsUpDown, Check } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverTrigger } from '@/components/ui/popover';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
 import {
   Command,
   CommandEmpty,
@@ -451,7 +452,16 @@ function CountryCombobox({ value, onChange, disabled, error }) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start">
+      <PopoverPrimitive.Content
+        align="start"
+        sideOffset={4}
+        className={cn(
+          'z-[300] w-[--radix-popover-trigger-width] p-0 rounded-md border bg-popover text-popover-foreground shadow-md outline-none',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+          'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
+        )}
+      >
         <Command>
           <CommandInput placeholder="Search country..." />
           <CommandList>
@@ -478,7 +488,7 @@ function CountryCombobox({ value, onChange, disabled, error }) {
             </CommandGroup>
           </CommandList>
         </Command>
-      </PopoverContent>
+      </PopoverPrimitive.Content>
     </Popover>
   );
 }

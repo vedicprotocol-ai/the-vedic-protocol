@@ -19,6 +19,8 @@ export const AuthProvider = ({ children }) => {
   // Monotonically-increasing counter to discard stale concurrent loadProfile calls.
   // Without this, a slow first call can overwrite a faster second call's result.
   const loadSeqRef = useRef(0);
+  // Mirror of currentUser accessible in callbacks without stale closure issues.
+  const currentUserRef = useRef(null);
 
   // Fetch the customer profile row and merge with the auth user.
   // Falls back to auth user_metadata (name/phone) when the customers row
@@ -26,7 +28,10 @@ export const AuthProvider = ({ children }) => {
   const loadProfile = async (authUser) => {
     const seq = ++loadSeqRef.current;           // claim a sequence number
     if (!authUser) {
-      if (seq === loadSeqRef.current) setCurrentUser(null);
+      if (seq === loadSeqRef.current) {
+        currentUserRef.current = null;
+        setCurrentUser(null);
+      }
       return;
     }
 
@@ -41,14 +46,26 @@ export const AuthProvider = ({ children }) => {
     console.log('[AuthContext] profile fetched:', profile, 'error:', profileError);
     if (profile) {
       console.log('[AuthContext] role value:', profile.role, '| isAdmin:', profile.role?.toLowerCase() === 'admin');
-      setCurrentUser({ ...authUser, ...profile });
+      const merged = { ...authUser, ...profile };
+      currentUserRef.current = merged;
+      setCurrentUser(merged);
     } else {
       // Profile row missing — use auth metadata as a temporary fallback.
+      // Preserve the role from the existing currentUser if available so that
+      // a slow/timed-out DB call does not strip admin privileges.
       // NOTE: if this keeps happening, run Database/set_admin_role.sql in
       // Supabase Dashboard → SQL Editor to ensure the customers row exists
       // and has the correct role value.
       const meta = authUser.user_metadata || {};
-      setCurrentUser({ ...authUser, name: meta.name || '', phone: meta.phone || '' });
+      const existingRole = currentUserRef.current?.role;
+      const fallback = {
+        ...authUser,
+        name: meta.name || '',
+        phone: meta.phone || '',
+        ...(existingRole ? { role: existingRole } : {}),
+      };
+      currentUserRef.current = fallback;
+      setCurrentUser(fallback);
     }
   };
 
@@ -59,6 +76,24 @@ export const AuthProvider = ({ children }) => {
     // fallback to overwrite a successful profile load (losing the admin role).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
+
+      // TOKEN_REFRESHED only rotates the JWT — the profile/role in the customers
+      // table has not changed. Re-running loadProfile risks a 6 s timeout that
+      // falls back to auth metadata (which has role='authenticated', not 'admin'),
+      // silently stripping admin privileges. Instead, just patch the auth fields
+      // onto the existing profile so the access token stays current.
+      if (event === 'TOKEN_REFRESHED') {
+        if (currentUserRef.current && user) {
+          const patched = { ...currentUserRef.current, ...user, role: currentUserRef.current.role };
+          currentUserRef.current = patched;
+          setCurrentUser(patched);
+        } else if (user) {
+          // No profile loaded yet — fall through to full loadProfile below.
+          await loadProfile(user);
+        }
+        return;
+      }
+
       if (event === 'SIGNED_IN' && user) {
         const meta = user.user_metadata || {};
         // Name-patch for the signup edge case where the DB trigger created the

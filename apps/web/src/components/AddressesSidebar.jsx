@@ -210,7 +210,7 @@ export default function AddressesSidebar() {
 
       {/* Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="font-serif text-xl font-normal text-[var(--ink)]">
               {editingAddress ? 'Edit Address' : 'Add New Address'}

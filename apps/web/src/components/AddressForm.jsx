@@ -549,11 +549,14 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
 
   const [errors, setErrors] = useState({});
   const [isValidating, setIsValidating] = useState(false);
+  const [isZipLookingUp, setIsZipLookingUp] = useState(false);
+  const [zipHint, setZipHint] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+    if (name === 'zip') setZipHint('');
   };
 
   const handleCountryChange = (code) => {
@@ -564,6 +567,43 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
   const handleStateChange = (val) => {
     setFormData((prev) => ({ ...prev, state: val }));
     if (errors.state) setErrors((prev) => ({ ...prev, state: '' }));
+  };
+
+  const handleZipBlur = async () => {
+    const zip = formData.zip.trim();
+    if (!zip || !formData.countryCode) return;
+
+    setIsZipLookingUp(true);
+    setZipHint('');
+    try {
+      const apiKey = import.meta.env.VITE_API_NINJAS_KEY;
+      const response = await fetch(
+        `https://api.api-ninjas.com/v1/zipcode?zip=${encodeURIComponent(zip)}`,
+        apiKey ? { headers: { 'X-Api-Key': apiKey } } : undefined
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const matches = Array.isArray(data)
+          ? data.filter(
+              (entry) =>
+                !entry.country_code ||
+                entry.country_code.toUpperCase() === formData.countryCode
+            )
+          : [];
+        if (matches.length > 0 && matches[0].city) {
+          setFormData((prev) => ({ ...prev, city: matches[0].city }));
+          setErrors((prev) => ({ ...prev, city: '' }));
+        } else {
+          setZipHint('ZIP code not found. Please enter your address and city manually.');
+        }
+      } else {
+        setZipHint('ZIP code not found. Please enter your address and city manually.');
+      }
+    } catch {
+      // Network failure — skip silently
+    } finally {
+      setIsZipLookingUp(false);
+    }
   };
 
   const validateAddress = async () => {
@@ -577,31 +617,7 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
       newErrors.state = 'State/Province is required.';
     }
 
-    if (formData.countryCode && formData.zip.trim()) {
-      try {
-        const response = await fetch(
-          `https://api.zippopotam.us/${formData.countryCode}/${formData.zip.trim()}`
-        );
-        if (!response.ok) {
-          const countryName = COUNTRIES.find((c) => c.code === formData.countryCode)?.name || formData.countryCode;
-          newErrors.zip = `ZIP/postal code "${formData.zip}" does not exist in ${countryName}.`;
-        } else {
-          const data = await response.json();
-          const returnedCities = data.places.map((p) => p['place name']);
-          const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const enteredNorm = normalize(formData.city);
-          const cityMatches = returnedCities.some((c) => {
-            const cn = normalize(c);
-            return cn.includes(enteredNorm) || enteredNorm.includes(cn);
-          });
-          if (!cityMatches && formData.city.trim()) {
-            newErrors.city = `City doesn't match this ZIP code. Found: ${returnedCities.join(', ')}.`;
-          }
-        }
-      } catch {
-        // Network failure — skip API validation silently
-      }
-    } else if (formData.countryCode && !formData.zip.trim()) {
+    if (formData.countryCode && !formData.zip.trim()) {
       newErrors.zip = 'ZIP/postal code is required.';
     }
 
@@ -682,17 +698,24 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
 
       <div className="space-y-2">
         <Label htmlFor="zip">ZIP / Postal Code *</Label>
-        <Input
-          id="zip"
-          name="zip"
-          required
-          value={formData.zip}
-          onChange={handleChange}
-          placeholder="400001"
-          disabled={busy}
-          className={errors.zip ? 'border-red-500' : ''}
-        />
+        <div className="relative">
+          <Input
+            id="zip"
+            name="zip"
+            required
+            value={formData.zip}
+            onChange={handleChange}
+            onBlur={handleZipBlur}
+            placeholder="400001"
+            disabled={busy}
+            className={errors.zip ? 'border-red-500' : ''}
+          />
+          {isZipLookingUp && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
         {errors.zip && <p className="text-xs text-red-500">{errors.zip}</p>}
+        {zipHint && !errors.zip && <p className="text-xs text-amber-600">{zipHint}</p>}
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t">

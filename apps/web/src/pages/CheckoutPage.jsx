@@ -153,6 +153,21 @@ export const CheckoutPage = () => {
     setSavingAddress(true);
     setError('');
     try {
+      // Ensure a customers row exists before inserting — guards against accounts
+      // where the profile row was never created (e.g. silent signup insert failure).
+      await supabase.from('customers').upsert(
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || '',
+          phone: currentUser.phone || null,
+          vedic_points: 0,
+          tier: 'Bronze',
+          role: 'customer',
+        },
+        { onConflict: 'id', ignoreDuplicates: true }
+      );
+
       const { data, error: insertErr } = await supabase
         .from('customer_address')
         .insert({ customer_id: currentUser.id, ...formData })
@@ -382,11 +397,11 @@ export const CheckoutPage = () => {
   };
 
   const StepBar = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '40px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+    <div className="checkout-step-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '40px', textTransform: 'uppercase' }}>
       {['Shipping','Payment','Review'].map((s, i) => (
         <React.Fragment key={s}>
-          <span style={{ color: step > i ? 'var(--ink)' : step === i + 1 ? 'var(--gold)' : 'var(--ink-4)', fontWeight: step === i + 1 ? 500 : 400 }}>{i+1}. {s}</span>
-          {i < 2 && <span style={{ color: 'var(--line-dk)', margin: '0 4px' }}>—</span>}
+          <span style={{ color: step > i ? 'var(--ink)' : step === i + 1 ? 'var(--gold)' : 'var(--ink-4)', fontWeight: step === i + 1 ? 500 : 400, whiteSpace: 'nowrap' }}>{i+1}. {s}</span>
+          {i < 2 && <span style={{ color: 'var(--line-dk)', margin: '0 4px', flexShrink: 0 }}>—</span>}
         </React.Fragment>
       ))}
     </div>
@@ -400,15 +415,44 @@ export const CheckoutPage = () => {
         <title>Checkout | The Vedic Protocol</title>
         <meta name="robots" content="noindex" />
       </Helmet>
+      <style>{`
+        .checkout-wrapper { padding: 56px 40px 80px; }
+        .checkout-grid { display: grid; grid-template-columns: 1fr 340px; gap: 48px; align-items: start; }
+        .checkout-summary-panel { position: sticky; top: 88px; }
+        .checkout-step-bar { font-size: 11px; letter-spacing: 0.1em; }
+        .checkout-item-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-3); padding: 8px 0; border-bottom: 1px solid var(--line); }
+        .checkout-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .checkout-item-price { flex-shrink: 0; }
+
+        @media (max-width: 1024px) {
+          .checkout-wrapper { padding: 40px 24px 60px; }
+          .checkout-grid { grid-template-columns: 1fr 300px; gap: 28px; }
+        }
+
+        @media (max-width: 768px) {
+          .checkout-wrapper { padding: 28px 16px 56px; }
+          .checkout-grid { grid-template-columns: 1fr; gap: 24px; }
+          .checkout-summary-panel { position: static; top: auto; order: -1; }
+          .checkout-step-bar { font-size: 10px; letter-spacing: 0.06em; gap: 4px !important; flex-wrap: wrap; }
+          .checkout-item-row { flex-wrap: wrap; gap: 6px; }
+          .checkout-item-name { white-space: normal; min-width: 0; }
+          .checkout-item-price { margin-left: auto; }
+        }
+
+        @media (max-width: 480px) {
+          .checkout-wrapper { padding: 20px 12px 48px; }
+          .checkout-step-bar span { font-size: 9px !important; }
+        }
+      `}</style>
       <Header />
       <main id="main">
-        <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '56px 40px 80px' }}>
-          <h1 style={{ fontFamily: 'var(--serif)', fontSize: '32px', fontWeight: 400, color: 'var(--ink)', marginBottom: '32px' }}>Secure Checkout</h1>
+        <div className="checkout-wrapper" style={{ maxWidth: 'var(--max)', margin: '0 auto' }}>
+          <h1 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 400, color: 'var(--ink)', marginBottom: '32px' }}>Secure Checkout</h1>
           <StepBar />
           {error && <p style={{ fontSize: '12px', color: '#c0392b', padding: '12px 16px', background: '#fff5f5', border: '1px solid #fecdd3', marginBottom: '24px' }}>{error}</p>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '48px', alignItems: 'start' }}>
-            <div style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: '40px' }}>
+          <div className="checkout-grid">
+            <div style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: 'clamp(20px, 4vw, 40px)' }}>
 
               {step === 1 && (
                 <>
@@ -697,11 +741,11 @@ export const CheckoutPage = () => {
             </div>
 
             {/* Order Summary */}
-            <div style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: '28px', position: 'sticky', top: '88px' }}>
+            <div className="checkout-summary-panel" style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: '28px' }}>
               <h3 style={{ fontFamily: 'var(--serif)', fontSize: '18px', fontWeight: 400, marginBottom: '20px' }}>Order Summary</h3>
-              <div style={{ maxHeight: '240px', overflowY: 'auto', marginBottom: '20px' }}>
+              <div style={{ maxHeight: '280px', overflowY: 'auto', marginBottom: '20px' }}>
                 {cartItems.map(item => (
-                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: 'var(--ink-3)', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div key={item.id} className="checkout-item-row">
                     {item.image_url && (
                       <img
                         src={getImageUrl(item.image_url)}
@@ -709,8 +753,8 @@ export const CheckoutPage = () => {
                         style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
                       />
                     )}
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.quantity}× {item.name}</span>
-                    <span style={{ flexShrink: 0 }}>₹{(item.price * item.quantity).toFixed(0)}</span>
+                    <span className="checkout-item-name">{item.quantity}× {item.name}</span>
+                    <span className="checkout-item-price" style={{ fontWeight: 500, color: 'var(--ink)' }}>₹{(item.price * item.quantity).toFixed(0)}</span>
                   </div>
                 ))}
               </div>

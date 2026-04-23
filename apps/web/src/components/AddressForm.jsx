@@ -576,28 +576,48 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
     setIsZipLookingUp(true);
     setZipHint('');
     try {
+      if (formData.countryCode === 'IN') {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${encodeURIComponent(zip)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {
+            const po = data[0].PostOffice[0];
+            const city = po.District || po.Name || '';
+            const state = po.State || '';
+            setFormData((prev) => ({
+              ...prev,
+              ...(city && { city }),
+              ...(state && { state }),
+            }));
+            if (city) setErrors((prev) => ({ ...prev, city: '', state: '' }));
+          } else {
+            setZipHint('PIN code not found. Please enter your city and state manually.');
+          }
+        } else {
+          setZipHint('PIN code not found. Please enter your city and state manually.');
+        }
+        return;
+      }
+
       const apiKey = import.meta.env.VITE_API_NINJAS_KEY;
-      const response = await fetch(
-        `https://api.api-ninjas.com/v1/zipcode?zip=${encodeURIComponent(zip)}`,
-        apiKey ? { headers: { 'X-Api-Key': apiKey } } : undefined
-      );
+      if (!apiKey) return;
+      const url = `https://api.api-ninjas.com/v1/zipcode?zip=${encodeURIComponent(zip)}&country=${formData.countryCode}`;
+      const response = await fetch(url, { headers: { 'X-Api-Key': apiKey } });
       if (response.ok) {
         const data = await response.json();
-        const matches = Array.isArray(data)
-          ? data.filter(
-              (entry) =>
-                !entry.country_code ||
-                entry.country_code.toUpperCase() === formData.countryCode
-            )
-          : [];
-        if (matches.length > 0 && matches[0].city) {
-          setFormData((prev) => ({ ...prev, city: matches[0].city }));
-          setErrors((prev) => ({ ...prev, city: '' }));
+        const entry = Array.isArray(data) && data.length > 0 ? data[0] : null;
+        if (entry?.city) {
+          setFormData((prev) => ({
+            ...prev,
+            city: entry.city,
+            ...(entry.state && { state: entry.state }),
+          }));
+          setErrors((prev) => ({ ...prev, city: '', ...(entry.state && { state: '' }) }));
         } else {
-          setZipHint('ZIP code not found. Please enter your address and city manually.');
+          setZipHint('ZIP code not found. Please enter your city manually.');
         }
       } else {
-        setZipHint('ZIP code not found. Please enter your address and city manually.');
+        setZipHint('ZIP code not found. Please enter your city manually.');
       }
     } catch {
       // Network failure — skip silently

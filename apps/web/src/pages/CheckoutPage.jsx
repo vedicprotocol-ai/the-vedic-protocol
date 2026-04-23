@@ -20,6 +20,24 @@ export const CheckoutPage = () => {
   const [error, setError] = useState('');
   const [shipping, setShipping] = useState({ name: currentUser?.name || '', address: '', city: '', state: '', zip: '' });
 
+  // Product images fetched from DB (keyed by product id)
+  const [productImages, setProductImages] = useState({});
+
+  useEffect(() => {
+    if (!cartItems.length) return;
+    const ids = cartItems.map(i => i.id);
+    supabase
+      .from('products')
+      .select('id, image')
+      .in('id', ids)
+      .then(({ data }) => {
+        if (!data) return;
+        const map = {};
+        data.forEach(p => { map[p.id] = p.image; });
+        setProductImages(map);
+      });
+  }, []);
+
   // Saved addresses
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -795,11 +813,13 @@ export const CheckoutPage = () => {
             <div className="checkout-summary-panel" style={{ background: 'var(--off)', border: '1px solid var(--line)', padding: '28px' }}>
               <h3 style={{ fontFamily: 'var(--serif)', fontSize: '18px', fontWeight: 400, marginBottom: '20px' }}>Order Summary</h3>
               <div style={{ maxHeight: '280px', overflowY: 'auto', marginBottom: '20px' }}>
-                {cartItems.map(item => (
+                {cartItems.map(item => {
+                  const imgSrc = getImageUrl(productImages[item.id] || item.image_url || item.image);
+                  return (
                   <div key={item.id} className="checkout-item-row">
-                    {item.image_url && (
+                    {imgSrc && (
                       <img
-                        src={getImageUrl(item.image_url)}
+                        src={imgSrc}
                         alt={item.name}
                         style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
                       />
@@ -807,7 +827,8 @@ export const CheckoutPage = () => {
                     <span className="checkout-item-name">{item.quantity}× {item.name}</span>
                     <span className="checkout-item-price" style={{ fontWeight: 500, color: 'var(--ink)' }}>₹{(item.price * item.quantity).toFixed(0)}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '13px', color: 'var(--ink-3)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>

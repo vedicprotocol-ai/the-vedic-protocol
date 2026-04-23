@@ -34,6 +34,16 @@ const OrderConfirmationPage = () => {
     }
   }, [id, order]);
 
+  useEffect(() => {
+    if (!order?.id || !order?.items) return;
+    const totalQuantity = order.items.reduce((sum, item) => sum + (item.qty ?? item.quantity ?? 0), 0);
+    if (totalQuantity > 0) {
+      supabase.from('orders').update({ quantity: totalQuantity }).eq('id', order.id).then(({ error }) => {
+        if (error) console.error('Failed to update order quantity:', error);
+      });
+    }
+  }, [order?.id]);
+
   if (loading) {
     return (
       <>

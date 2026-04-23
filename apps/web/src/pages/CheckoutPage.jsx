@@ -386,12 +386,34 @@ export const CheckoutPage = () => {
         }
       }
 
-      // Increment coupon usage count
+      // Increment coupon usage count and record coupon usage
       if (appliedCoupon) {
         await supabase
           .from('coupons')
           .update({ usage_count: (appliedCoupon.usage_count || 0) + 1 })
           .eq('id', appliedCoupon.id);
+
+        let commission_amount = 0;
+        if (appliedCoupon.influencer_id) {
+          const { data: influencer } = await supabase
+            .from('influencers')
+            .select('commission_percent')
+            .eq('id', appliedCoupon.influencer_id)
+            .single();
+          if (influencer?.commission_percent) {
+            const orderValue = total - shippingCost;
+            commission_amount = orderValue * influencer.commission_percent / 100;
+          }
+        }
+
+        await supabase.from('coupon_usage').insert({
+          coupon_id: appliedCoupon.id,
+          influencer_id: appliedCoupon.influencer_id || null,
+          customer_id: currentUser.id,
+          order_id: order.id,
+          discount_amount: couponDiscount,
+          commission_amount,
+        });
       }
 
       // Deduct used vedic points from customer

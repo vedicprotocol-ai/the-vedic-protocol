@@ -726,8 +726,8 @@ export default function AddressForm({ initialData, onSubmit, onCancel, isLoading
             value={formData.zip}
             onChange={handleChange}
             onBlur={handleZipBlur}
-            placeholder="400001"
-            disabled={busy}
+            placeholder={formData.countryCode ? '400001' : 'Select a country'}
+            disabled={busy || !formData.countryCode}
             className={errors.zip ? 'border-red-500' : ''}
           />
           {isZipLookingUp && (

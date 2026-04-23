@@ -27,6 +27,24 @@ export const CheckoutPage = () => {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
 
+  // 10-minute checkout timer
+  const [timeLeft, setTimeLeft] = useState(10 * 60);
+  const [timerExpired, setTimerExpired] = useState(false);
+
+  useEffect(() => {
+    if (timerExpired) return;
+    if (timeLeft <= 0) { setTimerExpired(true); return; }
+    const id = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) { setTimerExpired(true); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timeLeft, timerExpired]);
+
+  const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
   // Vedic Points
   const [pointsAvailable, setPointsAvailable] = useState(currentUser?.vedic_points || 0);
   const [usePoints, setUsePoints] = useState(false);
@@ -323,6 +341,7 @@ export const CheckoutPage = () => {
       const orderData = {
         customer_id: currentUser.id,
         items: cartItems.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.quantity })),
+        quantity: cartItems.reduce((sum, i) => sum + i.quantity, 0),
         subtotal, shipping: shippingCost, tax: 0, total, status: 'pending',
         shipping_address: selectedAddr
           ? { name: shipping.name, address: selectedAddr.address, city: selectedAddr.city, state: selectedAddr.state, zip: selectedAddr.zip, country: selectedAddr.country }
@@ -447,7 +466,39 @@ export const CheckoutPage = () => {
       <Header />
       <main id="main">
         <div className="checkout-wrapper" style={{ maxWidth: 'var(--max)', margin: '0 auto' }}>
-          <h1 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 400, color: 'var(--ink)', marginBottom: '32px' }}>Secure Checkout</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px', flexWrap: 'wrap', gap: '12px' }}>
+            <h1 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 400, color: 'var(--ink)', margin: 0 }}>Secure Checkout</h1>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '8px 14px',
+              border: `1px solid ${timerExpired ? '#dc2626' : timeLeft <= 120 ? '#f59e0b' : 'var(--line-dk)'}`,
+              background: timerExpired ? '#fef2f2' : timeLeft <= 120 ? '#fffbeb' : 'var(--off)',
+              borderRadius: '4px',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke={timerExpired ? '#dc2626' : timeLeft <= 120 ? '#f59e0b' : 'var(--ink-4)'} strokeWidth="1.5"/>
+                <path d="M12 7v5l3 3" stroke={timerExpired ? '#dc2626' : timeLeft <= 120 ? '#f59e0b' : 'var(--ink-4)'} strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span style={{
+                fontSize: '12px', fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.06em',
+                color: timerExpired ? '#dc2626' : timeLeft <= 120 ? '#b45309' : 'var(--ink)',
+              }}>
+                {timerExpired ? 'Session expired' : formatTimer(timeLeft)}
+              </span>
+              {!timerExpired && (
+                <span style={{ fontSize: '10px', color: 'var(--ink-4)', letterSpacing: '0.04em' }}>remaining</span>
+              )}
+            </div>
+          </div>
+
+          {timerExpired && (
+            <div style={{ padding: '16px 20px', background: '#fef2f2', border: '1px solid #fecdd3', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ fontSize: '13px', color: '#c0392b', fontWeight: 500 }}>Your checkout session has expired.</p>
+              <p style={{ fontSize: '12px', color: '#dc2626' }}>For your security, checkout sessions last 10 minutes. Your cart is still saved — please return to cart and try again.</p>
+              <a href="/cart" style={{ display: 'inline-block', marginTop: '4px', fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#c0392b', textDecoration: 'underline' }}>Return to Cart</a>
+            </div>
+          )}
+
           <StepBar />
           {error && <p style={{ fontSize: '12px', color: '#c0392b', padding: '12px 16px', background: '#fff5f5', border: '1px solid #fecdd3', marginBottom: '24px' }}>{error}</p>}
 
@@ -732,8 +783,8 @@ export const CheckoutPage = () => {
 
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="btn btn-light" onClick={() => setStep(2)}>Back</button>
-                    <button className="btn btn-dark" onClick={handleOrder} disabled={loading}>
-                      {loading ? 'Processing…' : 'Complete Order'}
+                    <button className="btn btn-dark" onClick={handleOrder} disabled={loading || timerExpired} title={timerExpired ? 'Session expired — return to cart' : undefined}>
+                      {loading ? 'Processing…' : timerExpired ? 'Session Expired' : 'Complete Order'}
                     </button>
                   </div>
                 </>

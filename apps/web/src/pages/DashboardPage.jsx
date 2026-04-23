@@ -109,6 +109,7 @@ export const DashboardPage = () => {
         .eq('order_id', order.id);
 
       if (earnedRecords && earnedRecords.length > 0) {
+        // Restore points that were redeemed/spent on this order
         const restorations = earnedRecords
           .filter(r => ['redeem', 'redemption'].includes(r.transaction_type))
           .map(r => ({
@@ -118,6 +119,17 @@ export const DashboardPage = () => {
             order_id: order.id,
           }));
         if (restorations.length > 0) await supabase.from('loyalty_points').insert(restorations);
+
+        // Reverse points that were earned from this purchase
+        const reversals = earnedRecords
+          .filter(r => r.transaction_type === 'purchase')
+          .map(r => ({
+            customer_id: currentUser.id,
+            points_earned: r.points_earned,
+            transaction_type: 'order_cancelled',
+            order_id: order.id,
+          }));
+        if (reversals.length > 0) await supabase.from('loyalty_points').insert(reversals);
       }
 
       const items = order.items ?? [];
@@ -196,6 +208,11 @@ export const DashboardPage = () => {
     } finally {
       setCancellingId(null);
     }
+  };
+
+  const getOrderQty = (o) => {
+    if (o.quantity) return o.quantity;
+    return (o.items ?? []).reduce((sum, item) => sum + (item.quantity || item.qty || 0), 0);
   };
 
   const apptStatusStyle = (status) => {
@@ -359,7 +376,7 @@ export const DashboardPage = () => {
                         ['Order Number', `#${o.legacy_id || o.id.slice(0, 8).toUpperCase()}`, false],
                         ['Date', new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), false],
                         ['Total', `₹${o.total?.toFixed(0)}`, false],
-                        ['Quantity', `${o.quantity ?? 0} item${(o.quantity ?? 0) !== 1 ? 's' : ''}`, false],
+                        ['Quantity', `${getOrderQty(o)} item${getOrderQty(o) !== 1 ? 's' : ''}`, false],
                         ['Vedic Pts Used', o.vedic_points_used > 0 ? `${o.vedic_points_used} pts` : '—', true],
                         ['Status', o.status, false],
                       ].map(([label, value, isGold]) => (
@@ -661,7 +678,7 @@ export const DashboardPage = () => {
                             <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--ink-3)', marginBottom: o.vedic_points_used > 0 || canCancelOrder ? '8px' : '0' }}>
                               <span>{new Date(o.created).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                               <span style={{ color: 'var(--ink)', fontWeight: 500 }}>₹{o.total?.toFixed(0)}</span>
-                              <span style={{ color: 'var(--ink-4)' }}>{o.quantity ?? 0} item{(o.quantity ?? 0) !== 1 ? 's' : ''}</span>
+                              <span style={{ color: 'var(--ink-4)' }}>{getOrderQty(o)} item{getOrderQty(o) !== 1 ? 's' : ''}</span>
                             </div>
                             {/* Vedic points row */}
                             {o.vedic_points_used > 0 && (
@@ -720,7 +737,7 @@ export const DashboardPage = () => {
                             <span style={{ fontFamily: 'var(--serif)', fontSize: '15px', color: 'var(--ink)' }}>#{o.legacy_id || o.id.slice(0, 8).toUpperCase()}</span>
                             <span style={{ fontSize: '12px', color: 'var(--ink-3)' }}>{new Date(o.created).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
                             <span style={{ fontSize: '13px', color: 'var(--ink)' }}>₹{o.total?.toFixed(0)}</span>
-                            <span style={{ fontSize: '13px', color: 'var(--ink)' }}>{o.quantity ?? 0}</span>
+                            <span style={{ fontSize: '13px', color: 'var(--ink)' }}>{getOrderQty(o)}</span>
                             <span style={{ fontSize: '13px', color: o.vedic_points_used > 0 ? 'var(--gold)' : 'var(--ink-4)' }}>
                               {o.vedic_points_used > 0 ? `${o.vedic_points_used} pts` : '—'}
                             </span>

@@ -61,9 +61,14 @@ const STYLES = `
   @media (max-width: 640px) {
     .vp-modal-body { grid-template-columns: 1fr !important; }
     .vp-photo-col  { border-right: none !important; border-bottom: 1px solid var(--line); }
-    .vp-photo-wrap { aspect-ratio: 4/3 !important; max-height: 260px; }
+    .vp-photo-wrap { aspect-ratio: 1/1 !important; max-height: 320px; }
     .booking-grid { grid-template-columns: 1fr !important; }
     .booking-sidebar { border-right: none !important; border-bottom: 1px solid var(--line); }
+  }
+
+  @media (min-width: 641px) {
+    .vp-modal-body { grid-template-columns: 280px 1fr; }
+    .vp-photo-wrap { min-height: 340px; }
   }
 
   .skeleton {
@@ -652,7 +657,7 @@ export default function DoctorDiscoveryPage() {
             {/* Modal body */}
             <div
               className="vp-modal-body"
-              style={{ display: 'grid', gridTemplateColumns: '240px 1fr' }}
+              style={{ display: 'grid', gridTemplateColumns: '280px 1fr' }}
             >
               {/* ── Photo + stats ── */}
               <div
@@ -661,17 +666,21 @@ export default function DoctorDiscoveryPage() {
               >
                 <div
                   className="vp-photo-wrap"
-                  style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--stone)' }}
+                  style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--stone)', flexShrink: 0 }}
                 >
-                  {selectedDoc.photo ? (
+                  {selectedDoc.image_url ? (
                     <img
-                      src={getImageUrl(selectedDoc.photo)}
+                      src={getImageUrl(selectedDoc.image_url)}
                       alt={`Photograph of ${selectedDoc.name}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
                     />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-4)' }}>
-                      No Photo
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--ink-4)' }}>
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      <span style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>No Photo</span>
                     </div>
                   )}
                 </div>

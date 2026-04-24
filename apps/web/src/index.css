@@ -719,7 +719,7 @@ select {
 .product-card__img-wrap {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 5;
   background: var(--stone);
 }
 
@@ -736,7 +736,8 @@ select {
 .product-card__img-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 10px;
   transition: transform 0.6s ease;
 }
 
@@ -826,10 +827,28 @@ select {
 
 .blog-card__img {
   aspect-ratio: 16 / 9;
-  background-size: cover;
-  background-position: center;
   background-color: var(--stone);
   position: relative;
+  overflow: hidden;
+}
+
+.blog-card__img-inner {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.blog-card:hover .blog-card__img-inner {
+  transform: scale(1.03);
+}
+
+.blog-card__img-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--stone);
 }
 
 .blog-card__body {
@@ -2260,16 +2279,9 @@ select {
 
 .blog-card__img {
   aspect-ratio: 16 / 9;
-  background-size: cover;
-  background-position: center;
   background-color: var(--stone);
   position: relative;
   overflow: hidden;
-  transition: transform 0.5s ease;
-}
-
-.blog-card:hover .blog-card__img {
-  transform: scale(1.02);
 }
 
 .blog-card__img .badge {
@@ -2564,6 +2576,10 @@ select {
 @media (max-width: 600px) {
   .blog-grid {
     grid-template-columns: 1fr;
+  }
+
+  .blog-card__img {
+    aspect-ratio: 4 / 3;
   }
 
   .blog-tabs {
@@ -3126,10 +3142,10 @@ select {
   padding: 56px 40px 80px;
 }
 
-/* ── Product grid — compact 5 cm × 5 cm tiles ── */
+/* ── Product grid — compact tiles ── */
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
 }
 
@@ -3137,7 +3153,7 @@ select {
 .product-card__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   transition: transform 0.7s ease;
 }
@@ -3337,8 +3353,9 @@ select {
 .qv-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  padding: 16px;
 }
 
 .qv-img-placeholder {
@@ -3460,8 +3477,8 @@ select {
   }
 
   .qv-img-wrap {
-    aspect-ratio: 16/9;
-    max-height: 240px;
+    aspect-ratio: 4 / 3;
+    max-height: 300px;
   }
 
   .qv-body {
@@ -3502,7 +3519,11 @@ select {
 @media (max-width: 600px) {
   .shop-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
+  }
+
+  .product-card__img-wrap img {
+    padding: 8px;
   }
 
   .shop-filters {
@@ -3519,6 +3540,91 @@ select {
 
   .shop-footer-strip__inner {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 380px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   PRODUCT DETAIL PAGE
+   ══════════════════════════════════════════════════ */
+
+.pdp-layout {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 56px 40px 80px;
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 72px;
+  align-items: start;
+}
+
+.pdp-img-wrap {
+  aspect-ratio: 3 / 4;
+  background: var(--stone);
+  overflow: hidden;
+  position: sticky;
+  top: 88px;
+}
+
+.pdp-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.pdp-img-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--stone);
+}
+
+.pdp-related-img-wrap {
+  display: block;
+  aspect-ratio: 4 / 5;
+  background: var(--stone);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.pdp-related-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .pdp-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 32px 24px 64px;
+  }
+
+  .pdp-img-wrap {
+    aspect-ratio: 4 / 3;
+    position: static;
+    max-height: 420px;
+  }
+}
+
+@media (max-width: 600px) {
+  .pdp-layout {
+    padding: 24px 16px 56px;
+    gap: 24px;
+  }
+
+  .pdp-img-wrap {
+    aspect-ratio: 1 / 1;
+    max-height: none;
   }
 }
 

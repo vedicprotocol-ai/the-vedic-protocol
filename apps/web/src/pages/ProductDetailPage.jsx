@@ -33,10 +33,7 @@ const ProductDetailPage = () => {
     load();
   }, [id]);
 
-  const getImage = (p) => {
-    if (p.image) return getImageUrl(p.image);
-    return 'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg';
-  };
+  const getImage = (p) => getImageUrl(p.image_url);
 
   const handleAdd = () => {
     addToCart(product, qty);
@@ -108,17 +105,14 @@ const ProductDetailPage = () => {
         </div>
 
         {/* Main product section */}
-        <div style={{ maxWidth: 'var(--max)', margin: '0 auto', padding: '56px 40px 80px', display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '72px', alignItems: 'start' }}>
+        <div className="pdp-layout">
 
           {/* Image */}
-          <div style={{ aspectRatio: '3/4', background: 'var(--stone)', overflow: 'hidden', position: 'sticky', top: '88px' }}>
-            <img
-              src={getImage(product)}
-              alt={product.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              loading="eager"
-              fetchPriority="high"
-            />
+          <div className="pdp-img-wrap">
+            {getImage(product)
+              ? <img src={getImage(product)} alt={product.name} className="pdp-img" loading="eager" fetchPriority="high" />
+              : <div className="pdp-img-placeholder" />
+            }
           </div>
 
           {/* Details */}
@@ -180,8 +174,11 @@ const ProductDetailPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '32px' }}>
               {related.map(r => (
                 <article key={r.id}>
-                  <Link to={`/product/${r.id}`} style={{ display: 'block', aspectRatio: '4/5', background: 'var(--stone)', overflow: 'hidden', marginBottom: '16px' }}>
-                    <img src={getImage(r)} alt={r.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                  <Link to={`/product/${r.id}`} className="pdp-related-img-wrap">
+                    {getImage(r)
+                      ? <img src={getImage(r)} alt={r.name} className="pdp-related-img" loading="lazy" />
+                      : <div className="pdp-img-placeholder" />
+                    }
                   </Link>
                   <Link to={`/product/${r.id}`}>
                     <h3 style={{ fontFamily: 'var(--serif)', fontSize: '17px', fontWeight: 400, color: 'var(--ink)', marginBottom: '6px' }}>{r.name}</h3>

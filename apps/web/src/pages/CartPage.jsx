@@ -49,12 +49,16 @@ export const CartPage = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
                 {cartItems.map((item) => (
                   <div key={item.id} style={{ display: 'flex', gap: isMobile ? '16px' : '24px', padding: '24px 0', borderBottom: '1px solid var(--line)', position: 'relative' }}>
-                    <div style={{ width: '88px', height: '110px', background: 'var(--stone)', flexShrink: 0, overflow: 'hidden' }}>
-                      <img
-                        src={item.image ? getImageUrl(item.image) : 'https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/364e063677ed92860e4ca29d681e1311.jpg'}
-                        alt={item.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+                    <div style={{ width: isMobile ? '72px' : '100px', height: isMobile ? '90px' : '124px', background: 'var(--stone)', flexShrink: 0, overflow: 'hidden' }}>
+                      {item.image_url ? (
+                        <img
+                          src={getImageUrl(item.image_url)}
+                          alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', background: 'var(--stone)' }} />
+                      )}
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>

@@ -28,12 +28,12 @@ export const CheckoutPage = () => {
     const ids = cartItems.map(i => i.id);
     supabase
       .from('products')
-      .select('id, image')
+      .select('id, image_url')
       .in('id', ids)
       .then(({ data }) => {
         if (!data) return;
         const map = {};
-        data.forEach(p => { map[p.id] = p.image; });
+        data.forEach(p => { map[p.id] = p.image_url; });
         setProductImages(map);
       });
   }, []);
@@ -836,15 +836,18 @@ export const CheckoutPage = () => {
               <h3 style={{ fontFamily: 'var(--serif)', fontSize: '18px', fontWeight: 400, marginBottom: '20px' }}>Order Summary</h3>
               <div style={{ maxHeight: '280px', overflowY: 'auto', marginBottom: '20px' }}>
                 {cartItems.map(item => {
-                  const imgSrc = getImageUrl(productImages[item.id] || item.image_url || item.image);
+                  const rawImg = productImages[item.id] || item.image_url;
+                  const imgSrc = rawImg ? getImageUrl(rawImg) : null;
                   return (
                   <div key={item.id} className="checkout-item-row">
-                    {imgSrc && (
+                    {imgSrc ? (
                       <img
                         src={imgSrc}
                         alt={item.name}
-                        style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
+                        style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
                       />
+                    ) : (
+                      <div style={{ width: '48px', height: '48px', background: 'var(--stone)', flexShrink: 0, border: '1px solid var(--line)' }} />
                     )}
                     <span className="checkout-item-name">{item.quantity}× {item.name}</span>
                     <span className="checkout-item-price" style={{ fontWeight: 500, color: 'var(--ink)' }}>₹{(item.price * item.quantity).toFixed(0)}</span>

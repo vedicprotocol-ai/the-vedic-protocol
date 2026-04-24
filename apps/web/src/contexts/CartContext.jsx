@@ -56,7 +56,7 @@ export const CartProvider = ({ children }) => {
 
       const { data: dbRows } = await supabase
         .from('cart_items')
-        .select('id, product_id, quantity, products(id, name, price, image, category, stock)')
+        .select('id, product_id, quantity, products(id, name, price, image_url, category, stock)')
         .eq('customer_id', customerId);
 
       const dbCart = (dbRows || []).map(row => ({

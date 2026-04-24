@@ -1,29 +1,32 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const BlogCard = ({ slug, type, title, excerpt, readTime, author, image }) => {
-  return (
-    <Link to={`/blog/${slug}`} className="blog-card flex flex-col h-full">
-      <div
-        className="blog-card__img"
-        style={{ backgroundImage: `url(${image})` }}
-        role="img"
-        aria-label={title}
-      >
-        <span className={`badge badge-${type} absolute top-4 left-4`}>
-          {type === 'research' ? 'Research' : 'Journal'}
-        </span>
+const BlogCard = ({ post }) => (
+  <Link to={`/blog/${post.slug}`} state={{ post }} className="blog-card">
+    <div className="blog-card__img" aria-hidden="true">
+      {post.image ? (
+        <img
+          src={post.image}
+          alt={post.title}
+          className="blog-card__img-inner"
+          loading="lazy"
+        />
+      ) : (
+        <div className="blog-card__img-placeholder" />
+      )}
+      <span className={`badge badge-${post.type}`}>
+        {post.type === 'research' ? 'Research' : 'Journal'}
+      </span>
+    </div>
+    <div className="blog-card__body">
+      <h3 className="blog-card__title">{post.title}</h3>
+      <p className="blog-card__excerpt">{post.excerpt}</p>
+      <div className="blog-card__meta">
+        <span>{post.readTime} min read</span>
+        <span>{post.author || 'Dr. Sonam'}</span>
       </div>
-      <div className="blog-card__body flex flex-col flex-grow">
-        <h3 className="blog-card__title">{title}</h3>
-        <p className="blog-card__excerpt flex-grow">{excerpt}</p>
-        <div className="blog-card__meta mt-auto pt-4 border-t border-[var(--line)]">
-          <span>{readTime} min read</span>
-          <span>{author}</span>
-        </div>
-      </div>
-    </Link>
-  );
-};
+    </div>
+  </Link>
+);
 
 export default BlogCard;

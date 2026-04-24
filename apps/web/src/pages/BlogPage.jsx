@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Link, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
+import BlogCard from '@/components/BlogCard.jsx';
 import supabase from '@/lib/supabaseClient.js';
 
 /* ─────────────────────────────────────────────────────────────
@@ -54,32 +55,6 @@ const ReadingProgress = () => {
     </div>
   );
 };
-
-/* ─────────────────────────────────────────────────────────────
-   BLOG CARD
-───────────────────────────────────────────────────────────── */
-const BlogCard = ({ post }) => (
-  <Link to={`/blog/${post.slug}`} state={{ post }} className="blog-card">
-    <div
-      className="blog-card__img"
-      style={{ backgroundImage: post.image ? `url(${post.image})` : undefined }}
-      role="img"
-      aria-label={post.title}
-    >
-      <span className={`badge badge-${post.type}`}>
-        {post.type === 'research' ? 'Research' : 'Journal'}
-      </span>
-    </div>
-    <div className="blog-card__body">
-      <h3 className="blog-card__title">{post.title}</h3>
-      <p className="blog-card__excerpt">{post.excerpt}</p>
-      <div className="blog-card__meta">
-        <span>{post.readTime} min read</span>
-        <span>Dr. Sonam</span>
-      </div>
-    </div>
-  </Link>
-);
 
 /* ─────────────────────────────────────────────────────────────
    BLOG LIST VIEW

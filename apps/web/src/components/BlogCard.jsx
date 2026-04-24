@@ -14,9 +14,6 @@ const BlogCard = ({ post }) => (
       ) : (
         <div className="blog-card__img-placeholder" />
       )}
-      <span className={`badge badge-${post.type}`}>
-        {post.type === 'research' ? 'Research' : 'Journal'}
-      </span>
     </div>
     <div className="blog-card__body">
       <h3 className="blog-card__title">{post.title}</h3>

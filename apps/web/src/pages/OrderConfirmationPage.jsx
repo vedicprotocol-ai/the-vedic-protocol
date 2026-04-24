@@ -183,9 +183,9 @@ const OrderConfirmationPage = () => {
                   <div key={index} className="flex justify-between items-center border-b border-[#b8962e]/10 pb-4">
                     <div>
                       <p className="text-[#f2ead8] font-medium">{item.name}</p>
-                      <p className="text-[#f2ead8]/70 font-light text-sm">Quantity: {item.quantity}</p>
+                      <p className="text-[#f2ead8]/70 font-light text-sm">Quantity: {item.qty ?? item.quantity}</p>
                     </div>
-                    <p className="text-[#b8962e] font-medium">₹{(item.price * item.quantity).toFixed(0)}</p>
+                    <p className="text-[#b8962e] font-medium">₹{(item.price * (item.qty ?? item.quantity)).toFixed(0)}</p>
                   </div>
                 ))}
               </div>

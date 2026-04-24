@@ -65,21 +65,23 @@ const InfluencerDashboard = ({ currentUser }) => {
 
           const orders = (ordersData ?? []).map(o => {
             const orderValue = (o.total || 0) - (o.shipping || 0);
-            const commission = orderValue * commissionPct / 100;
+            const isDelivered = o.status === 'delivered';
+            const commission = isDelivered ? orderValue * commissionPct / 100 : 0;
             return { ...o, orderValue, commission };
           });
           setUsageRecords(orders);
 
-          const totalOrderValue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-          const totalCommission = orders.reduce((sum, o) => sum + o.commission, 0);
-          const uniqueCustomerIds = new Set(orders.map(o => o.customer_id).filter(Boolean));
+          const deliveredOrders = orders.filter(o => o.status === 'delivered');
+          const totalOrderValue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+          const totalCommission = deliveredOrders.reduce((sum, o) => sum + o.commission, 0);
+          const uniqueCustomerIds = new Set(deliveredOrders.map(o => o.customer_id).filter(Boolean));
 
           setStats({
             totalEarnings: totalCommission,
             commissionPct,
             uniqueCustomers: uniqueCustomerIds.size,
-            totalPurchases: orders.length,
-            avgOrderValue: orders.length > 0 ? totalOrderValue / orders.length : 0,
+            totalPurchases: deliveredOrders.length,
+            avgOrderValue: deliveredOrders.length > 0 ? totalOrderValue / deliveredOrders.length : 0,
           });
         } else {
           setStats({
@@ -300,7 +302,10 @@ const InfluencerDashboard = ({ currentUser }) => {
 
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-[#8c8c8c]">Your Commission</span>
-                      <span className="text-sm font-medium text-[#D4AF37]">₹{commission.toFixed(2)}</span>
+                      {record.status === 'delivered'
+                        ? <span className="text-sm font-medium text-[#D4AF37]">₹{commission.toFixed(2)}</span>
+                        : <span className="text-xs text-[#8c8c8c] italic">Pending delivery</span>
+                      }
                     </div>
 
                     <div className="flex justify-between items-center pt-2 border-t border-[#f0f0f0]">
@@ -356,8 +361,11 @@ const InfluencerDashboard = ({ currentUser }) => {
                         <td className="py-4 px-6 text-sm text-[#8c8c8c] text-right">
                           ₹{discountAmount.toFixed(0)}
                         </td>
-                        <td className="py-4 px-6 text-sm text-right font-medium text-[#D4AF37]">
-                          ₹{commission.toFixed(2)}
+                        <td className="py-4 px-6 text-sm text-right font-medium">
+                          {record.status === 'delivered'
+                            ? <span className="text-[#D4AF37]">₹{commission.toFixed(2)}</span>
+                            : <span className="text-xs text-[#8c8c8c] italic">Pending delivery</span>
+                          }
                         </td>
                         <td className="py-4 px-6 text-right">
                           <span className="text-xs capitalize px-2 py-1 rounded bg-[#f0f0f0] text-[#595959]">

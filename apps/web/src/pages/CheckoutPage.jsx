@@ -172,10 +172,7 @@ export const CheckoutPage = () => {
     }
     setCouponCode(coupon.code);
     setAppliedCoupon(coupon);
-    const discLabel = coupon.discount_type === 'percent'
-      ? `${coupon.discount_value}% off`
-      : `₹${coupon.discount_value} off`;
-    setCouponSuccess(`Coupon applied — ${discLabel} on your order!`);
+    setCouponSuccess(`Coupon applied — ${coupon.discount_value}% off on your order!`);
     setShowAvailableCoupons(false);
   };
 
@@ -277,10 +274,7 @@ export const CheckoutPage = () => {
       }
 
       setAppliedCoupon(data);
-      const discLabel = data.discount_type === 'percent'
-        ? `${data.discount_value}% off`
-        : `₹${data.discount_value} off`;
-      setCouponSuccess(`Coupon applied — ${discLabel} on your order!`);
+      setCouponSuccess(`Coupon applied — ${data.discount_value}% off on your order!`);
     } catch (e) {
       setCouponError('Failed to validate coupon. Please try again.');
     } finally {
@@ -304,11 +298,9 @@ export const CheckoutPage = () => {
     ? Math.min(subtotal, Math.floor(Math.min(pointsToUse, pointsAvailable)) / 4)
     : 0;
 
-  // Coupon applies to subtotal only (not shipping)
+  // Coupon applies to subtotal only (not shipping); discount_value is always a percentage
   const couponDiscount = appliedCoupon
-    ? appliedCoupon.discount_type === 'percent'
-      ? Math.min(subtotal, subtotal * (Number(appliedCoupon.discount_value) / 100))
-      : Math.min(subtotal, Number(appliedCoupon.discount_value))
+    ? Math.min(subtotal, subtotal * (Number(appliedCoupon.discount_value) / 100))
     : 0;
 
   const total = subtotal + shippingCost - pointsDiscount - couponDiscount;
@@ -393,26 +385,13 @@ export const CheckoutPage = () => {
           .update({ usage_count: (appliedCoupon.usage_count || 0) + 1 })
           .eq('id', appliedCoupon.id);
 
-        let commission_amount = 0;
-        if (appliedCoupon.influencer_id) {
-          const { data: influencer } = await supabase
-            .from('influencers')
-            .select('commission_percent')
-            .eq('id', appliedCoupon.influencer_id)
-            .single();
-          if (influencer?.commission_percent) {
-            const orderValue = total - shippingCost;
-            commission_amount = orderValue * influencer.commission_percent / 100;
-          }
-        }
-
         await supabase.from('coupon_usage').insert({
           coupon_id: appliedCoupon.id,
           influencer_id: appliedCoupon.influencer_id || null,
           customer_id: currentUser.id,
           order_id: order.id,
           discount_amount: couponDiscount,
-          commission_amount,
+          commission_amount: 0, // Commission is earned only on delivery, not at order placement
         });
       }
 
@@ -687,9 +666,7 @@ export const CheckoutPage = () => {
                         <div>
                           <span style={{ fontSize: '13px', color: '#166534', fontWeight: 500 }}>{appliedCoupon.code}</span>
                           <span style={{ fontSize: '12px', color: '#15803d', marginLeft: '8px' }}>
-                            {appliedCoupon.discount_type === 'percent'
-                              ? `${appliedCoupon.discount_value}% off`
-                              : `₹${appliedCoupon.discount_value} off`}
+                            {appliedCoupon.discount_value}% off
                           </span>
                         </div>
                         <button
@@ -764,7 +741,7 @@ export const CheckoutPage = () => {
                                       )}
                                     </div>
                                     <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gold)', flexShrink: 0, marginLeft: '12px' }}>
-                                      {c.discount_type === 'percent' ? `${c.discount_value}% off` : `₹${c.discount_value} off`}
+                                      {c.discount_value}% off
                                     </span>
                                   </button>
                                 ))}

@@ -57,13 +57,15 @@ export default function AdminInfluencersPage() {
 
         orders = (ordersData ?? []).map(o => {
           const orderValue = (o.total || 0) - (o.shipping || 0);
-          return { ...o, orderValue, commission: orderValue * commissionPct / 100 };
+          const isDelivered = o.status === 'delivered';
+          return { ...o, orderValue, commission: isDelivered ? orderValue * commissionPct / 100 : 0 };
         });
       }
 
-      const totalOrderValue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-      const totalCommission = orders.reduce((sum, o) => sum + o.commission, 0);
-      const uniqueCustomers = new Set(orders.map(o => o.customer_id).filter(Boolean)).size;
+      const deliveredOrders = orders.filter(o => o.status === 'delivered');
+      const totalOrderValue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+      const totalCommission = deliveredOrders.reduce((sum, o) => sum + o.commission, 0);
+      const uniqueCustomers = new Set(deliveredOrders.map(o => o.customer_id).filter(Boolean)).size;
 
       setEarningsData({
         influencer: inf,
@@ -73,8 +75,8 @@ export default function AdminInfluencersPage() {
           totalEarnings: totalCommission,
           commissionPct,
           uniqueCustomers,
-          totalPurchases: orders.length,
-          avgOrderValue: orders.length > 0 ? totalOrderValue / orders.length : 0,
+          totalPurchases: deliveredOrders.length,
+          avgOrderValue: deliveredOrders.length > 0 ? totalOrderValue / deliveredOrders.length : 0,
         },
       });
     } catch (err) {
@@ -520,7 +522,13 @@ export default function AdminInfluencersPage() {
                               </div>
                               <div className="flex justify-between"><span className="text-xs text-[#8c8c8c]">Order Total</span><span className="text-sm font-medium text-[#1a1a1a]">₹{(record.total || 0).toFixed(0)}</span></div>
                               <div className="flex justify-between"><span className="text-xs text-[#8c8c8c]">Discount Applied</span><span className="text-sm text-[#8c8c8c]">₹{(record.discount || 0).toFixed(0)}</span></div>
-                              <div className="flex justify-between"><span className="text-xs text-[#8c8c8c]">Commission</span><span className="text-sm font-medium text-[#D4AF37]">₹{record.commission.toFixed(2)}</span></div>
+                              <div className="flex justify-between">
+                                <span className="text-xs text-[#8c8c8c]">Commission</span>
+                                {record.status === 'delivered'
+                                  ? <span className="text-sm font-medium text-[#D4AF37]">₹{record.commission.toFixed(2)}</span>
+                                  : <span className="text-xs text-[#8c8c8c] italic">Pending delivery</span>
+                                }
+                              </div>
                               <div className="flex justify-between pt-2 border-t border-[#f0f0f0]">
                                 <span className="text-xs font-medium text-[#1a1a1a]">Status</span>
                                 <span className="text-xs capitalize text-[#595959]">{record.status}</span>
@@ -562,7 +570,12 @@ export default function AdminInfluencersPage() {
                                   <td className="py-4 px-6 text-sm text-[#595959]">{formatEarningsDate(record.created)}</td>
                                   <td className="py-4 px-6 text-sm text-[#1a1a1a] text-right font-medium">₹{(record.total || 0).toFixed(0)}</td>
                                   <td className="py-4 px-6 text-sm text-[#8c8c8c] text-right">₹{(record.discount || 0).toFixed(0)}</td>
-                                  <td className="py-4 px-6 text-sm text-right font-medium text-[#D4AF37]">₹{record.commission.toFixed(2)}</td>
+                                  <td className="py-4 px-6 text-sm text-right font-medium">
+                                    {record.status === 'delivered'
+                                      ? <span className="text-[#D4AF37]">₹{record.commission.toFixed(2)}</span>
+                                      : <span className="text-xs text-[#8c8c8c] italic">Pending delivery</span>
+                                    }
+                                  </td>
                                   <td className="py-4 px-6 text-right">
                                     <span className="text-xs capitalize px-2 py-1 rounded bg-[#f0f0f0] text-[#595959]">{record.status}</span>
                                   </td>

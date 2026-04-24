@@ -313,6 +313,21 @@ export default function DoctorDiscoveryPage() {
     }
   };
 
+  const todayStr = today.toISOString().split('T')[0];
+
+  const isPastTimeStr = (timeStr) => {
+    // Parse "HH:MM AM/PM" format
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return false;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const meridiem = match[3].toUpperCase();
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    const now = new Date();
+    return hours < now.getHours() || (hours === now.getHours() && minutes <= now.getMinutes());
+  };
+
   const handleDateSelect = (dateStr) => {
     setSelectedDate(dateStr);
     setSelectedSlot(null);
@@ -1026,7 +1041,11 @@ export default function DoctorDiscoveryPage() {
                     <div className="time-grid">
                       {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="skeleton" style={{ height: '44px' }} />)}
                     </div>
-                  ) : availableSlots.length === 0 ? (
+                  ) : (() => {
+                    const visibleSlots = selectedDate === todayStr
+                      ? availableSlots.filter(slot => !isPastTimeStr(slot.time))
+                      : availableSlots;
+                    return visibleSlots.length === 0 ? (
                     <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--ink-4)', border: '1px dashed var(--line)', fontSize: '13px' }}>
                       No available slots on this date.
                     </div>
@@ -1045,7 +1064,7 @@ export default function DoctorDiscoveryPage() {
                         </div>
                       )}
                       <div className="time-grid">
-                        {availableSlots.map(slot => (
+                        {visibleSlots.map(slot => (
                           <button
                             key={slot.id}
                             type="button"
@@ -1058,7 +1077,8 @@ export default function DoctorDiscoveryPage() {
                         ))}
                       </div>
                     </>
-                  )}
+                  );
+                  })()}
                 </div>
 
                 {/* Right: Form */}

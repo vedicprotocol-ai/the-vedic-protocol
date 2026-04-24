@@ -35,6 +35,8 @@ const useCloseOnEscape = (isOpen, onClose) => {
 ═══════════════════════════════════════════════════ */
 const QuickView = ({ product, onClose, onAddToCart }) => {
   const overlayRef = useRef(null);
+  const [qty, setQty] = useState(1);
+  const [openAcc, setOpenAcc] = useState(null);
   useCloseOnEscape(true, onClose);
 
   /* Lock body scroll */
@@ -53,6 +55,12 @@ const QuickView = ({ product, onClose, onAddToCart }) => {
     product.category === 'skincare' ? 'Skincare' :
     product.category || 'Formulation';
 
+  const accordions = [
+    ['Clinical Intent', product.benefits || 'Formulated to optimise barrier function and restore cellular homeostasis through targeted botanical actives.'],
+    ['Active Ingredients', product.ingredients || 'Proprietary botanical complex. Full ingredient list available on packaging.'],
+    ['Protocol Instructions', product.how_to_use || 'Apply 2–3 drops to cleansed skin morning and evening. Pat gently until absorbed.'],
+  ];
+
   return (
     <div
       className="qv-overlay"
@@ -70,49 +78,64 @@ const QuickView = ({ product, onClose, onAddToCart }) => {
           </svg>
         </button>
 
-        {/* Image */}
+        {/* Image — full-width tile */}
         <div className="qv-img-wrap">
           {imgSrc
             ? <img src={imgSrc} alt={product.name} className="qv-img" />
             : <div className="qv-img-placeholder" />
           }
+          <span className="qv-cat-badge">{categoryLabel}</span>
         </div>
 
         {/* Details */}
         <div className="qv-body">
-          <p className="section-label">{categoryLabel}</p>
           <h2 className="qv-title">{product.name}</h2>
           <p className="qv-price">₹{product.price?.toFixed(0)}</p>
           <p className="qv-desc">
             {product.description || 'A clinical botanical formulation drawn from ancient Ayurvedic pharmacology and validated by modern dermatological science.'}
           </p>
 
-          {/* Key ingredients strip */}
-          {product.ingredients && (
-            <div className="qv-ingredients">
-              <p className="qv-ingredients__label">Key Actives</p>
-              <p className="qv-ingredients__list">{product.ingredients}</p>
-            </div>
-          )}
+          {/* Accordions */}
+          <div className="qv-accordions">
+            {accordions.map(([title, detail], i) => (
+              <div key={title} className="qv-acc-item">
+                <button
+                  className="qv-acc-trigger"
+                  onClick={() => setOpenAcc(openAcc === i ? null : i)}
+                  aria-expanded={openAcc === i}
+                >
+                  <span>{title}</span>
+                  <span className="qv-acc-icon" style={{ transform: openAcc === i ? 'rotate(45deg)' : 'none' }}>+</span>
+                </button>
+                {openAcc === i && <p className="qv-acc-body">{detail}</p>}
+              </div>
+            ))}
+          </div>
 
           {/* Badges */}
           <div className="qv-badges">
-            {['100% Botanical', 'Zero Synthetics', 'PhD Formulated'].map((b) => (
+            {['PhD Formulated', '100% Botanical', 'Cruelty Free', 'Vegan'].map((b) => (
               <span key={b} className="qv-badge">{b}</span>
             ))}
           </div>
 
-          {/* Actions */}
+          {/* Qty + Add to Ritual */}
           <div className="qv-actions">
+            <div className="qty-ctrl" role="group" aria-label="Quantity">
+              <button className="qty-btn" onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease quantity">
+                <svg width="12" height="2" viewBox="0 0 12 2" fill="none"><path d="M1 1h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+              <span className="qty-val" aria-live="polite">{qty}</span>
+              <button className="qty-btn" onClick={() => setQty(qty + 1)} aria-label="Increase quantity">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+            </div>
             <button
-              className="btn btn-dark btn-full"
-              onClick={() => { onAddToCart(product); onClose(); }}
+              className="btn btn-dark qv-add-btn"
+              onClick={() => { onAddToCart(product, qty); onClose(); }}
             >
               Add to Ritual
             </button>
-            <Link to={`/product/${product.id}`} className="btn btn-light btn-full qv-view-btn">
-              Full Details
-            </Link>
           </div>
         </div>
       </div>
@@ -335,8 +358,8 @@ export const ShopPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddToCart = (product) => {
-    if (addToCart) addToCart(product, 1);
+  const handleAddToCart = (product, qty = 1) => {
+    if (addToCart) addToCart(product, qty);
     setAddedToast(product.name);
     setTimeout(() => setAddedToast(null), 2500);
   };

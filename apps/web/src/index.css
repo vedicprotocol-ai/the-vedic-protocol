@@ -3296,15 +3296,15 @@ select {
   }
 }
 
-/* Panel */
+/* Panel — single column */
 .qv-panel {
   background: var(--white);
-  max-width: 860px;
+  max-width: 480px;
   width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   position: relative;
-  max-height: 90vh;
+  max-height: 92vh;
   overflow-y: auto;
   animation: slideUp 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
@@ -3343,11 +3343,14 @@ select {
   border-color: var(--ink);
 }
 
-/* Image side */
+/* Image — full-width tile */
 .qv-img-wrap {
-  aspect-ratio: 3 / 4;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: var(--stone);
+  flex-shrink: 0;
 }
 
 .qv-img {
@@ -3355,7 +3358,7 @@ select {
   height: 100%;
   object-fit: contain;
   display: block;
-  padding: 16px;
+  padding: 20px;
 }
 
 .qv-img-placeholder {
@@ -3364,30 +3367,42 @@ select {
   background: var(--stone);
 }
 
-/* Details side */
+.qv-cat-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: var(--white);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+}
+
+/* Details */
 .qv-body {
-  padding: 40px 36px;
+  padding: 28px 28px 32px;
   display: flex;
   flex-direction: column;
   gap: 0;
-  overflow-y: auto;
+  flex: 1;
 }
 
 .qv-title {
   font-family: var(--serif);
-  font-size: clamp(22px, 3vw, 30px);
+  font-size: clamp(20px, 3vw, 26px);
   font-weight: 300;
   color: var(--ink);
   line-height: 1.2;
-  margin-bottom: 8px;
-  margin-top: 8px;
+  margin-bottom: 6px;
 }
 
 .qv-price {
   font-family: var(--serif);
-  font-size: 22px;
+  font-size: 20px;
   color: var(--ink);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .qv-desc {
@@ -3398,34 +3413,53 @@ select {
   margin-bottom: 20px;
 }
 
-/* Key ingredients */
-.qv-ingredients {
-  background: var(--off);
-  border: 1px solid var(--line);
-  padding: 14px 16px;
+/* Accordions */
+.qv-accordions {
+  border-top: 1px solid var(--line);
   margin-bottom: 20px;
 }
 
-.qv-ingredients__label {
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 6px;
+.qv-acc-item {
+  border-bottom: 1px solid var(--line);
 }
 
-.qv-ingredients__list {
+.qv-acc-trigger {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.qv-acc-icon {
+  font-size: 18px;
+  color: var(--gold);
+  transition: transform 0.25s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.qv-acc-body {
   font-size: 12px;
-  color: var(--ink-2);
-  line-height: 1.6;
+  color: var(--ink-3);
+  line-height: 1.85;
+  padding-bottom: 16px;
 }
 
 /* Trust badges */
 .qv-badges {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .qv-badge {
@@ -3434,20 +3468,19 @@ select {
   text-transform: uppercase;
   color: var(--ink-3);
   border: 1px solid var(--line-dk);
-  padding: 5px 10px;
+  padding: 4px 9px;
 }
 
-/* Action buttons */
+/* Qty + Add row */
 .qv-actions {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   margin-top: auto;
 }
 
-.qv-view-btn {
-  text-align: center;
-  justify-content: center;
+.qv-add-btn {
+  flex: 1;
 }
 
 /* Mobile bottom sheet feel */
@@ -3458,7 +3491,6 @@ select {
   }
 
   .qv-panel {
-    grid-template-columns: 1fr;
     max-height: 92vh;
     border-radius: 16px 16px 0 0;
     animation: slideUpMobile 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -3476,13 +3508,8 @@ select {
     }
   }
 
-  .qv-img-wrap {
-    aspect-ratio: 4 / 3;
-    max-height: 300px;
-  }
-
   .qv-body {
-    padding: 28px 24px 40px;
+    padding: 24px 20px 32px;
   }
 }
 

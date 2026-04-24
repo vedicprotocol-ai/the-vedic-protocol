@@ -5,7 +5,7 @@ import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import NewsletterSignup from '@/components/NewsletterSignup.jsx';
 
-/* ─── Static journal preview data (replace with real PocketBase fetch later) ─── */
+/* ─── Static journal preview data ─── */
 const JOURNAL_PREVIEW = [
   {
     slug: 'what-is-ashwagandha',

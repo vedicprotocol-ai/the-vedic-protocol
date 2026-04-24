@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 
-const REDEEM_TYPES = ['redeem', 'redemption'];
+const DEBIT_TYPES = ['redeem', 'redemption', 'order_cancelled'];
 
 const getActivityLabel = (type) => {
   switch (type) {
@@ -34,7 +34,7 @@ const VedicPointsPage = () => {
 
         const total = (allPoints ?? []).reduce((sum, record) => {
           const pts = record.points_earned ?? 0;
-          return REDEEM_TYPES.includes(record.transaction_type) ? sum - pts : sum + pts;
+          return DEBIT_TYPES.includes(record.transaction_type) ? sum - pts : sum + pts;
         }, 0);
         const computed = Math.max(0, total);
         setBalance(computed);
@@ -103,7 +103,7 @@ const VedicPointsPage = () => {
                 {history.length > 0 ? (
                   <div className="divide-y divide-border">
                     {history.map(record => {
-                      const isDebit = REDEEM_TYPES.includes(record.transaction_type);
+                      const isDebit = DEBIT_TYPES.includes(record.transaction_type);
                       const pts = Math.abs(record.points_earned ?? 0);
                       const label = getActivityLabel(record.transaction_type);
                       return (

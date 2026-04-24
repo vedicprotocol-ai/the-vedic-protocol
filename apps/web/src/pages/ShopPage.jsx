@@ -146,7 +146,7 @@ const QuickView = ({ product, onClose, onAddToCart }) => {
 /* ═══════════════════════════════════════════════════
    PRODUCT CARD — compact square tile
 ═══════════════════════════════════════════════════ */
-const ProductCardItem = ({ product, onQuickView }) => {
+const ProductCardItem = ({ product, onQuickView, onAddToCart }) => {
   const imgSrc = getImage(product);
   const categoryLabel =
     product.category === 'haircare' ? 'Haircare' :
@@ -182,7 +182,7 @@ const ProductCardItem = ({ product, onQuickView }) => {
         {/* Add to Ritual on hover */}
         <button
           className="product-card__quick"
-          onClick={() => onQuickView(product)}
+          onClick={() => onAddToCart(product, 1)}
           aria-label={`Add ${product.name} to ritual`}
         >
           Add to Ritual
@@ -462,6 +462,7 @@ export const ShopPage = () => {
                   key={p.id}
                   product={p}
                   onQuickView={(prod) => setQuickView(prod)}
+                  onAddToCart={handleAddToCart}
                 />
               ))}
             </div>

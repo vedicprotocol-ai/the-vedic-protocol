@@ -580,13 +580,13 @@ export default function DoctorDiscoveryPage() {
                       {doc.name}
                     </h2>
                     <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: '24px' }}>
-                      {doc.qualification}
+                      {doc.title}
                     </p>
 
                     <div style={{ marginBottom: '32px', flex: 1 }}>
                       <p style={{ fontSize: '13px', color: 'var(--ink-3)', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Experience</span>
-                        <span style={{ color: 'var(--ink)', fontWeight: 400 }}>{doc.experience_years} years</span>
+                        <span style={{ color: 'var(--ink)', fontWeight: 400 }}>{doc.experience} years</span>
                       </p>
                       <p style={{ fontSize: '13px', color: 'var(--ink-3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
                         <span>Focus</span>
@@ -702,10 +702,11 @@ export default function DoctorDiscoveryPage() {
 
                 <div style={{ padding: '20px' }}>
                   {[
-                    ['Qualification', selectedDoc.qualification],
-                    ['Experience', `${selectedDoc.experience_years} years`],
+                    ['Title', selectedDoc.title],
                     ['Specialisation', selectedDoc.specialization],
-                  ].map(([label, value], i, arr) => (
+                    ['Experience', selectedDoc.experience ? `${selectedDoc.experience} years` : null],
+                    ['Languages', selectedDoc.languages],
+                  ].filter(([, value]) => value).map(([label, value], i, arr) => (
                     <div
                       key={label}
                       style={{
@@ -738,11 +739,11 @@ export default function DoctorDiscoveryPage() {
                   {selectedDoc.name}
                 </h2>
                 <p style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '24px' }}>
-                  {selectedDoc.qualification}
+                  {selectedDoc.title}
                 </p>
 
                 <div style={{ fontSize: '14px', color: 'var(--ink-3)', lineHeight: 1.9, flex: 1, whiteSpace: 'pre-wrap' }}>
-                  {selectedDoc.full_description || selectedDoc.short_description}
+                  {selectedDoc.bio}
                 </div>
 
                 <div style={{

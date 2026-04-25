@@ -108,8 +108,19 @@ const Header = () => {
       <header className={`site-header${scrolled ? ' scrolled' : ''}`} role="banner">
         <nav className="nav-inner" aria-label="Main navigation">
 
-          {/* Left nav — all menu links */}
-          <div className="nav-left">
+          {/* Logo — left corner */}
+          <Link to="/" className="nav-logo" aria-label="The Vedic Protocol — Home">
+            <img
+              src="https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/062f48878062e4b8f9ee07b47af1bf7d.png"
+              alt=""
+              aria-hidden="true"
+              style={{ height: '38px', width: 'auto', display: 'block', mixBlendMode: 'multiply', flexShrink: 0 }}
+            />
+            <span className="nav-logo-name">The Vedic Protocol</span>
+          </Link>
+
+          {/* Right nav — all menus + icons */}
+          <div className="nav-right">
             <Link to="/about" className="nav-link" aria-current={isActive('/about') ? 'page' : undefined}>
               About
             </Link>
@@ -133,10 +144,7 @@ const Header = () => {
                 Admin
               </Link>
             )}
-          </div>
 
-          {/* Right nav — logo at far right + icons */}
-          <div className="nav-right">
             {/* Account */}
             {isAuthenticated ? (
               <Link to="/dashboard" className="nav-icon nav-icon-account" aria-label="Your account">
@@ -179,17 +187,6 @@ const Header = () => {
                 </svg>
               )}
             </button>
-
-            {/* Logo — right corner */}
-            <Link to="/" className="nav-logo" aria-label="The Vedic Protocol — Home">
-              <img
-                src="https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/062f48878062e4b8f9ee07b47af1bf7d.png"
-                alt=""
-                aria-hidden="true"
-                style={{ height: '38px', width: 'auto', display: 'block', mixBlendMode: 'multiply', flexShrink: 0 }}
-              />
-              <span className="nav-logo-name">The Vedic Protocol</span>
-            </Link>
           </div>
         </nav>
       </header>

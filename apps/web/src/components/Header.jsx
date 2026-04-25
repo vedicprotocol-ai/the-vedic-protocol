@@ -4,11 +4,6 @@ import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useCart } from '@/contexts/CartContext.jsx';
 
 /* ─── Icons ─────────────────────────────────────────────────── */
-const IconSearch = () => (
-  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-  </svg>
-);
 const IconUser = () => (
   <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
@@ -113,7 +108,7 @@ const Header = () => {
       <header className={`site-header${scrolled ? ' scrolled' : ''}`} role="banner">
         <nav className="nav-inner" aria-label="Main navigation">
 
-          {/* Left nav */}
+          {/* Left nav — all menu links */}
           <div className="nav-left">
             <Link to="/about" className="nav-link" aria-current={isActive('/about') ? 'page' : undefined}>
               About
@@ -130,6 +125,9 @@ const Header = () => {
             <Link to="/doctors" className="nav-link" aria-current={isActive('/doctors') ? 'page' : undefined}>
               Talk to Doctors
             </Link>
+            <Link to="/social-impact" className="nav-link" aria-current={isActive('/social-impact') ? 'page' : undefined}>
+              Social Impact
+            </Link>
             {isAdmin && (
               <Link to="/admin" className="nav-link" aria-current={isActive('/admin') ? 'page' : undefined}>
                 Admin
@@ -137,28 +135,8 @@ const Header = () => {
             )}
           </div>
 
-          {/* Logo — centre */}
-          <Link to="/" className="nav-logo" aria-label="The Vedic Protocol — Home">
-            <img
-              src="https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/062f48878062e4b8f9ee07b47af1bf7d.png"
-              alt=""
-              aria-hidden="true"
-              style={{ height: '38px', width: 'auto', display: 'block', mixBlendMode: 'multiply', flexShrink: 0 }}
-            />
-            <span className="nav-logo-name">The Vedic Protocol</span>
-          </Link>
-
-          {/* Right nav */}
+          {/* Right nav — logo at far right + icons */}
           <div className="nav-right">
-            <Link to="/social-impact" className="nav-link" aria-current={isActive('/social-impact') ? 'page' : undefined}>
-              Social Impact
-            </Link>
-
-            {/* Search */}
-            <Link to="/shop" className="nav-icon nav-icon-search" aria-label="Search formulations">
-              <IconSearch />
-            </Link>
-
             {/* Account */}
             {isAuthenticated ? (
               <Link to="/dashboard" className="nav-icon nav-icon-account" aria-label="Your account">
@@ -178,7 +156,7 @@ const Header = () => {
               )}
             </Link>
 
-            {/* Refined CTA — ghost link style */}
+            {/* CTA */}
             <button className="nav-cta" onClick={scrollToWaitlist} aria-label="Join the waitlist">
               Join Waitlist
             </button>
@@ -201,6 +179,17 @@ const Header = () => {
                 </svg>
               )}
             </button>
+
+            {/* Logo — right corner */}
+            <Link to="/" className="nav-logo" aria-label="The Vedic Protocol — Home">
+              <img
+                src="https://horizons-cdn.hostinger.com/bfed98a7-6f91-43f0-8610-351a61a344ed/062f48878062e4b8f9ee07b47af1bf7d.png"
+                alt=""
+                aria-hidden="true"
+                style={{ height: '38px', width: 'auto', display: 'block', mixBlendMode: 'multiply', flexShrink: 0 }}
+              />
+              <span className="nav-logo-name">The Vedic Protocol</span>
+            </Link>
           </div>
         </nav>
       </header>

@@ -90,27 +90,31 @@ const Header = () => {
   };
 
   const isActive = (path) => location.pathname === path;
+  const isBlogPost = /^\/blog\/.+/.test(location.pathname);
+  const overHero = isBlogPost && !scrolled;
 
   return (
     <>
-      {/* ── Trust Bar ── */}
-      <div className="trust-bar" role="marquee" aria-label="Brand highlights">
-        <div className="trust-track">
-          {[
-            'PhD Formulated', '100% Botanical', 'Cruelty Free & Vegan',
-            'Clinical Skincare & Haircare', 'Charaka Samhita Verified',
-            'Zero Chemicals', 'Super Clean Formula',
-            'PhD Formulated', '100% Botanical', 'Cruelty Free & Vegan',
-            'Clinical Skincare & Haircare', 'Charaka Samhita Verified',
-            'Zero Synthetics', 'Super Clean Formula',
-          ].map((t, i) => (
-            <span key={i} className="trust-item">{t}</span>
-          ))}
+      {/* ── Trust Bar — hidden on blog post pages for clean hero ── */}
+      {!isBlogPost && (
+        <div className="trust-bar" role="marquee" aria-label="Brand highlights">
+          <div className="trust-track">
+            {[
+              'PhD Formulated', '100% Botanical', 'Cruelty Free & Vegan',
+              'Clinical Skincare & Haircare', 'Charaka Samhita Verified',
+              'Zero Chemicals', 'Super Clean Formula',
+              'PhD Formulated', '100% Botanical', 'Cruelty Free & Vegan',
+              'Clinical Skincare & Haircare', 'Charaka Samhita Verified',
+              'Zero Synthetics', 'Super Clean Formula',
+            ].map((t, i) => (
+              <span key={i} className="trust-item">{t}</span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Header ── */}
-      <header className={`site-header${scrolled ? ' scrolled' : ''}`} role="banner">
+      <header className={`site-header${scrolled ? ' scrolled' : ''}${overHero ? ' site-header--over-hero' : ''}`} role="banner">
         <nav className="nav-inner" aria-label="Main navigation">
 
           {/* Left nav */}

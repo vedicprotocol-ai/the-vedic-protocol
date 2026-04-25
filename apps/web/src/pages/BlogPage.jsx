@@ -406,7 +406,7 @@ const BlogPage = () => {
   return (
     <>
       <Header />
-      <main id="main" className="blog-main">
+      <main id="main" className={`blog-main${slug ? ' blog-main--post' : ''}`}>
         {slug ? <BlogPost slug={slug} /> : <BlogList />}
       </main>
       <Footer />

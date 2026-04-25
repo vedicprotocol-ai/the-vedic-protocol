@@ -246,6 +246,34 @@ select {
   transition: background 0.35s ease, backdrop-filter 0.35s ease, box-shadow 0.35s ease;
 }
 
+/* Transparent overlay on blog-post hero — stays transparent until scrolled */
+.site-header--over-hero {
+  background: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+.site-header--over-hero .nav-link,
+.site-header--over-hero .nav-icon,
+.site-header--over-hero .nav-logo-name,
+.site-header--over-hero .nav-hamburger {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.site-header--over-hero .nav-link:hover,
+.site-header--over-hero .nav-icon:hover {
+  color: #fff;
+}
+
+.site-header--over-hero .nav-cta {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.site-header--over-hero .nav-logo img {
+  filter: brightness(0) invert(1);
+}
+
 /* Frosted glass on scroll — add class 'scrolled' via JS */
 .site-header.scrolled {
   background: rgba(253, 251, 247, 0.82);
@@ -2202,6 +2230,11 @@ select {
   min-height: 100vh;
 }
 
+/* Blog post pages: pull content up so the hero sits under the transparent header */
+.blog-main--post {
+  margin-top: calc(-1 * var(--nav-h));
+}
+
 /* ── Blog list hero ── */
 .blog-hero {
   max-width: var(--max);
@@ -2320,11 +2353,21 @@ select {
 /* ── Post hero ── */
 .post-hero {
   position: relative;
-  height: 60vh;
-  min-height: 380px;
-  max-height: 580px;
+  height: calc(60vh + var(--nav-h));
+  min-height: 420px;
+  max-height: 640px;
   overflow: hidden;
   background: var(--stone);
+}
+
+/* Dark gradient at the top so transparent-header nav items stay readable */
+.post-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, transparent 38%);
+  z-index: 1;
+  pointer-events: none;
 }
 
 .post-hero__img {
@@ -2340,6 +2383,7 @@ select {
 .post-hero__overlay {
   position: absolute;
   inset: 0;
+  z-index: 2;
   background: linear-gradient(to bottom,
       rgba(10, 8, 5, 0) 30%,
       rgba(10, 8, 5, 0.55) 100%);
@@ -2349,6 +2393,7 @@ select {
   position: absolute;
   bottom: 28px;
   left: 40px;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -2567,8 +2612,8 @@ select {
 
 @media (max-width: 768px) {
   .post-hero {
-    height: 45vw;
-    min-height: 260px;
+    height: calc(45vw + var(--nav-h));
+    min-height: 300px;
   }
 
   .post-hero__meta {

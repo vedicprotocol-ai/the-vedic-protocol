@@ -80,7 +80,7 @@ const Footer = () => {
                   </p>
                   <hr style="border:none;border-top:1px solid #e8e6e1;margin:32px 0;">
                   <p style="font-size:18px;font-style:italic;color:#1a1814;margin:0 0 4px;">Dr. Sonam</p>
-                  <p style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#9a9690;margin:0;">PhD · Ayurvedic Pharmacology · Founder</p>
+                  <p style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#9a9690;margin:0;">PhD · Kayachikitsa · Founder</p>
                 </div>
               </div>
             `,

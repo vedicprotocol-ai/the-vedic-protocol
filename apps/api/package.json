@@ -9,12 +9,13 @@
     "lint": "eslint . --quiet"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.10",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.0.1",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
-    "@supabase/supabase-js": "^2.49.10"
+    "razorpay": "^2.9.6"
   },
   "devDependencies": {
     "@eslint/js": "^8.57.0",

@@ -46,6 +46,17 @@ export const CheckoutPage = () => {
   const [savingAddress, setSavingAddress] = useState(false);
 
   // 10-minute checkout timer
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+
+  useEffect(() => {
+    if (window.Razorpay) { setRazorpayLoaded(true); return; }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => setRazorpayLoaded(true);
+    script.onerror = () => setError('Payment system failed to load. Please refresh the page.');
+    document.body.appendChild(script);
+  }, []);
+
   const [timeLeft, setTimeLeft] = useState(10 * 60);
   const [timerExpired, setTimerExpired] = useState(false);
 
@@ -345,8 +356,58 @@ export const CheckoutPage = () => {
   }
 
   const handleOrder = async () => {
-    setLoading(true); setError('');
+    if (!razorpayLoaded) {
+      setError('Payment system is still loading. Please try again in a moment.');
+      return;
+    }
+    setLoading(true);
+    setError('');
     try {
+      // Step 1: Create a Razorpay order on the backend
+      const orderRes = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: total }),
+      });
+      if (!orderRes.ok) throw new Error('Could not initiate payment. Please try again.');
+      const rzpOrder = await orderRes.json();
+
+      // Step 2: Open Razorpay checkout and wait for payment + server-side verification
+      await new Promise((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+          amount: rzpOrder.amount,
+          currency: rzpOrder.currency,
+          name: 'The Vedic Protocol',
+          description: `Order — ${cartItems.length} item${cartItems.length !== 1 ? 's' : ''}`,
+          order_id: rzpOrder.orderId,
+          prefill: {
+            name: shipping.name,
+            email: currentUser?.email || '',
+            contact: currentUser?.phone || '',
+          },
+          theme: { color: '#b8a06a' },
+          handler: async (response) => {
+            try {
+              const vRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(response),
+              });
+              const vData = await vRes.json();
+              if (vData.verified) resolve(response);
+              else reject(new Error('Payment verification failed. Please contact support.'));
+            } catch {
+              reject(new Error('Payment verification error. Please contact support.'));
+            }
+          },
+          modal: { ondismiss: () => reject(new Error('cancelled')) },
+        });
+        rzp.on('payment.failed', (r) => reject(new Error(r.error?.description || 'Payment failed.')));
+        rzp.open();
+      });
+
+      // Step 3: Payment verified — record order in Supabase
       const selectedAddr = savedAddresses.find(x => x.id === selectedAddressId);
       const orderData = {
         customer_id: currentUser.id,
@@ -356,8 +417,8 @@ export const CheckoutPage = () => {
         shipping_address: selectedAddr
           ? { name: shipping.name, address: selectedAddr.address, city: selectedAddr.city, state: selectedAddr.state, zip: selectedAddr.zip, country: selectedAddr.country }
           : shipping,
-        payment_method: 'credit_card',
-        payment_status: 'pending',
+        payment_method: 'razorpay',
+        payment_status: 'paid',
         coupon_code: appliedCoupon?.code || null,
         discount: couponDiscount || 0,
         vedic_points_used: usePoints ? Math.min(pointsToUse, pointsAvailable) : 0,
@@ -384,14 +445,13 @@ export const CheckoutPage = () => {
           .from('coupons')
           .update({ usage_count: (appliedCoupon.usage_count || 0) + 1 })
           .eq('id', appliedCoupon.id);
-
         await supabase.from('coupon_usage').insert({
           coupon_id: appliedCoupon.id,
           influencer_id: appliedCoupon.influencer_id || null,
           customer_id: currentUser.id,
           order_id: order.id,
           discount_amount: couponDiscount,
-          commission_amount: 0, // Commission is earned only on delivery, not at order placement
+          commission_amount: 0,
         });
       }
 
@@ -419,7 +479,6 @@ export const CheckoutPage = () => {
         const newTier = updatedBalance >= 5000 ? 'Gold' : updatedBalance >= 1000 ? 'Silver' : 'Bronze';
         await supabase.from('customers').update({ vedic_points: updatedBalance, tier: newTier }).eq('id', currentUser.id);
       } else if (usePoints && pointsToUse > 0) {
-        // Points were only spent (no new points earned) — recalculate tier from new balance
         const updatedBalance = Math.max(0, pointsAvailable - Math.min(pointsToUse, pointsAvailable));
         const newTier = updatedBalance >= 5000 ? 'Gold' : updatedBalance >= 1000 ? 'Silver' : 'Bronze';
         await supabase.from('customers').update({ tier: newTier }).eq('id', currentUser.id);
@@ -429,7 +488,9 @@ export const CheckoutPage = () => {
       await refreshProfile();
       navigate(`/order-confirmation/${order.id}`, { state: { order, pointsEarned: pts } });
     } catch (e) {
-      setError(e.message || 'Checkout failed. Please try again.');
+      if (e.message !== 'cancelled') {
+        setError(e.message || 'Payment failed. Please try again.');
+      }
       setLoading(false);
     }
   };
@@ -612,7 +673,11 @@ export const CheckoutPage = () => {
 
                   {/* Payment method */}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', border: '1px solid var(--gold)', background: 'var(--white)', cursor: 'pointer', fontSize: '13px' }}>
-                    <input type="radio" checked readOnly style={{ accentColor: 'var(--gold)' }} /> Credit / Debit Card (Demo)
+                    <input type="radio" checked readOnly style={{ accentColor: 'var(--gold)' }} />
+                    <span>
+                      Pay with Razorpay
+                      <span style={{ display: 'block', fontSize: '11px', color: 'var(--ink-4)', marginTop: '2px' }}>UPI · Cards · Net Banking · Wallets</span>
+                    </span>
                   </label>
 
                   {/* Vedic Points */}
@@ -800,8 +865,8 @@ export const CheckoutPage = () => {
 
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="btn btn-light" onClick={() => setStep(2)}>Back</button>
-                    <button className="btn btn-dark" onClick={handleOrder} disabled={loading || timerExpired} title={timerExpired ? 'Session expired — return to cart' : undefined}>
-                      {loading ? 'Processing…' : timerExpired ? 'Session Expired' : 'Complete Order'}
+                    <button className="btn btn-dark" onClick={handleOrder} disabled={loading || timerExpired || !razorpayLoaded} title={timerExpired ? 'Session expired — return to cart' : undefined}>
+                      {loading ? 'Processing…' : timerExpired ? 'Session Expired' : !razorpayLoaded ? 'Loading…' : 'Pay Now'}
                     </button>
                   </div>
                 </>

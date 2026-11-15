@@ -46,6 +46,12 @@
     --muted-foreground: 30 5% 59%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --popover: 0 0% 100%;              /* white — dropdown/select panels */
+    --popover-foreground: 30 14% 9%;
+    --accent: 36 10% 94%;              /* hovered/focused menu item */
+    --accent-foreground: 30 14% 9%;
+    --secondary: 36 10% 94%;
+    --secondary-foreground: 30 14% 9%;
   }
 
   .dark {
@@ -62,6 +68,12 @@
     --muted-foreground: 30 5% 59%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --popover: 36 8% 14%;
+    --popover-foreground: 0 0% 100%;
+    --accent: 36 8% 22%;
+    --accent-foreground: 0 0% 100%;
+    --secondary: 36 8% 22%;
+    --secondary-foreground: 0 0% 100%;
   }
 }
 
